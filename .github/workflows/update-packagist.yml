@@ -1,0 +1,16 @@
+name: Update Packagist
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Notify Packagist
+        run: |
+          curl -XPOST -d '{"repository":{"url":"https://github.com/mdt-star/nexus"}}' \
+            -H "Content-Type: application/json" \
+            https://packagist.org/api/update-package?username=mdt-star&apiToken=${{ secrets.PACKAGIST_TOKEN }}
