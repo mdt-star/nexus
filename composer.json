@@ -1,0 +1,39 @@
+{
+    "name": "mdt-star/nexus",
+    "description": "Laravel 核心权限模块 - 提供功能权限控制、菜单管理、数据范围策略、动态配置等基础设施能力",
+    "type": "library",
+    "license": "MIT",
+    "require": {
+        "php": "^8.1",
+        "illuminate/support": "^10.0|^11.0",
+        "illuminate/database": "^10.0|^11.0",
+        "illuminate/http": "^10.0|^11.0",
+        "illuminate/auth": "^10.0|^11.0"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^10.0",
+        "orchestra/testbench": "^8.0|^9.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "MdtStar\\Nexus\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "MdtStar\\Nexus\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "MdtStar\\Nexus\\Providers\\NexusServiceProvider"
+            ]
+        }
+    },
+    "config": {
+        "sort-packages": true
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true
+}
