@@ -31,6 +31,9 @@ abstract class TestCase extends OrchestraTestCase
             'database' => ':memory:',
             'prefix' => '',
         ]);
+
+        // 测试环境中不启用超级管理员（避免 id=1 的用户被跳过权限检查）
+        $app['config']->set('nexus.super_admin_id', 0);
     }
 
     /**

@@ -1,27 +1,34 @@
 # 当前活动上下文
 
-## 当前任务
-根据设计文档构建项目骨架，当前正在进行架构重构。
+## 当前状态
+- 项目骨架已搭建完成，所有核心功能已实现
+- 82 个测试全部通过（145 个断言）
+- 路由挂载系统（Mount System）已实现并测试通过
 
-## 最近改动
-- 项目更名为 Nexus（枢纽）
-- 实现持久配置合并机制（DynamicConfigManager + NexusServiceProvider）
-- TypedValueCast：Laravel Custom Cast 重构 Config 模型类型转换
-- Form Request：Controller 验证逻辑抽离到独立文件
-- Filterable Trait + FilterRequest：统一查询过滤体系
+## 最近变更
+1. **MountInstance 重构为 RouteRegistrar 代理模式**：
+   - `MountInstance` 内部持有 `RouteRegistrar` 实例（懒加载）
+   - `__call` 中 `without{Ability}` 能力已注册 → 加入取消列表，重置路由
+   - `without{Ability}` 能力未注册 → 转交给 RouteRegistrar（让用户扩展的 macro 有机会处理）
+   - 非 `without` 方法（如 `get`, `post`, `group`, `middleware`, `name`）→ 转交给 RouteRegistrar
+   - 这样 `Route::mount('api')->withoutAuth()->get('/public', ...)` 也能正常工作
 
-## 当前完成改动
-- ✅ PermissionSyncer — tag 原样保存，不拼接父级前缀
-- ✅ permissions 表唯一约束改为 (package_id, tag, parent_id)
-- ✅ Package 全表缓存（allCached() + flushCache()）
-- ✅ 新建 model_has_permissions 多态表 + ModelHasPermission 模型
-- ✅ 新建 HasPermission 接口 + HasPermissionTrait 默认实现（多态 + 缓存 + hasTag()）
-- ✅ User 模型实现 HasPermission，复写 getPermissionTags() 穿透 Role
-- ✅ Role 模型实现 HasPermission，使用 trait 默认实现
-- ✅ VerifyAuthTagMiddleware 改为调用 $user->hasTag()，异常消息国际化
+2. **新增 6 个测试验证 RouteRegistrar 转发**：
+   - `mount_instance_forwards_get_to_route_registrar` — get() 返回 Route
+   - `mount_instance_forwards_post_to_route_registrar` — post() 返回 Route
+   - `mount_instance_forwards_middleware_to_route_registrar` — middleware() 返回 RouteRegistrar
+   - `mount_instance_forwards_name_to_route_registrar` — name() 返回 RouteRegistrar
+   - `mount_instance_forwards_group_to_route_registrar` — group() 返回 RouteRegistrar
+   - `mount_instance_chain_get_after_without_auth` — withoutAuth() 后 get() 返回 Route
+
+## 能力继承规则
+- **多父级之间**：abilities 取并集（array_merge）
+- **子级对父级**：abilities 也是取并集（array_merge），与多父级行为一致
+- **取消能力**：使用 `without{Ability}()` 动态调用，能力已注册则取消，未注册则转给 RouteRegistrar
+
+## 前缀合并规则
+- **绝对路径**（以 `/` 开头，如 `/admin`）→ 直接替换父级前缀
+- **相对路径**（不以 `/` 开头，如 `admin`）→ 追加到父级后面
 
 ## 下一步计划
-- ⏳ 未来处理 tag 绑定时，需要实现 ModelHasPermission 单个对象级的缓存清空
-  - 当给某个模型（User/Role）新增/删除 tag 时，调用该模型的 flushPermissionCache()
-  - 可通过 ModelHasPermission 观察者（saved/deleted）自动触发关联模型的缓存清理
-  - 避免全量缓存过期，实现精准缓存失效
+- 无

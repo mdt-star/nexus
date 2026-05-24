@@ -106,6 +106,11 @@ class VerifyAuthTagMiddleware extends Authenticate
             throw new PermissionDeniedException('subject_not_has_permission_interface');
         }
 
+        // 超级管理员跳过权限校验
+        if (method_exists($user, 'isSuperAdmin') && $user->isSuperAdmin()) {
+            return $next($request);
+        }
+
         $packageId = $request->route()?->defaults('package_id');
 
         if (! $user->hasTag($tag, $packageId)) {

@@ -15,6 +15,7 @@
 - `illuminate/support` - Laravel 核心支持
 - `illuminate/database` - Eloquent ORM
 - `illuminate/http` - HTTP 请求/响应
+- `illuminate/routing` - 路由系统（RouteRegistrar）
 
 ## 包信息
 - 包名: `mdt-star/nexus`
@@ -40,6 +41,16 @@
 - `set()` 写入后自动 `config()->set()` 即时生效
 - `delete()` 删除后恢复静态配置值
 
+### MountManager + MountInstance（路由挂载系统）
+- `MountManager` 管理 mount 注册、解析、继承、能力
+- `MountInstance` 是 RouteRegistrar 的代理，支持链式取消能力
+- `__call` 规则：
+  - `without{Ability}` + 能力已注册 → 加入取消列表，重置路由
+  - `without{Ability}` + 能力未注册 → 转给 RouteRegistrar（用户 macro 有机会处理）
+  - 非 `without` 方法（get/post/group/middleware/name 等）→ 转给 RouteRegistrar
+- 回调统一接收 `MountInstance` 作为 `$route` 参数
+- 快捷宏自动注册（如 `Route::api(...)` 等价于 `Route::mount('api', ...)`）
+
 ## 设计约束
 1. 零物理外键 - 所有表间关联为逻辑关联
 2. 配置驱动 - 静态配置放 config，动态配置放数据库
@@ -47,3 +58,7 @@
 4. 单一职责 - 每个类只做一件事
 5. 多国语言支持 - name 通过语言包匹配 tag，不存数据库
 6. 声明式过滤 - 过滤规则在 Request 层声明，Model 层不参与
+
+## 文档编写约束
+
+- **设计文档禁码**：架构设计文档（`docs/design/`）只描述设计思路、规则、策略和决策，严禁出现具体代码实现。代码应放在 `src/` 目录中。

@@ -9,6 +9,7 @@ use MdtStar\Nexus\Models\Package;
 use MdtStar\Nexus\Models\Permission;
 use MdtStar\Nexus\Models\User;
 use MdtStar\Nexus\Observers\PermissionObserver;
+use MdtStar\Nexus\Routing\MountManager;
 use MdtStar\Nexus\Services\DynamicConfigManager;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Route;
@@ -43,6 +44,11 @@ class NexusServiceProvider extends ServiceProvider
         $this->app->singleton(DynamicConfigManager::class, function ($app) {
             return new DynamicConfigManager();
         });
+
+        // 注册路由挂载管理器为单例
+        $this->app->singleton(MountManager::class, function ($app) {
+            return new MountManager();
+        });
     }
 
     /**
@@ -55,6 +61,9 @@ class NexusServiceProvider extends ServiceProvider
 
         // 注册路由宏
         $this->registerRouteMacros();
+
+        // 注册默认挂载点和能力
+        $this->registerDefaultMounts();
 
         // 注册 Builder Macro（HasDataScope 的 withSubject 依赖此 Macro）
         $this->registerBuilderMacros();
@@ -117,6 +126,9 @@ class NexusServiceProvider extends ServiceProvider
      *
      * Route::auth() — 自动注入 package_id 到 defaults，支持自动推断和显式指定包名
      * Route::tag() — 将自定义 tag 写入 defaults('auth_tag')
+     * Route::mount() — 路由挂载系统
+     * Route::extendMount() — 扩展路由挂载
+     * Route::extendAbility() — 扩展能力
      */
     protected function registerRouteMacros(): void
     {
@@ -185,6 +197,98 @@ class NexusServiceProvider extends ServiceProvider
                 $this->defaults,
                 ['auth_tag' => $tag]
             ));
+        });
+
+        // ============================================================
+        // Route Mount 系统
+        // ============================================================
+
+        /**
+         * Route::mount() — 路由挂载
+         *
+         * 使用预定义或自定义的 mount 来注册路由组。
+         *
+         * 用法：
+         * ```php
+         * Route::mount('api', function () {
+         *     Route::get('/articles', [ArticleController::class, 'index']);
+         *     // → /api/v1/articles + auth
+         * });
+         *
+         * Route::mount('api:v2', function () {
+         *     // → /api/v2/articles + auth
+         * });
+         * ```
+         */
+        Route::macro('mount', function (string $spec, callable $callback) {
+            /** @var MountManager $manager */
+            $manager = app(MountManager::class);
+            $manager->mount($spec, $callback);
+        });
+
+        /**
+         * Route::extendMount() — 扩展路由挂载
+         *
+         * 注册一个新的 mount 定义。
+         *
+         * 用法：
+         * ```php
+         * Route::extendMount('admin', function (string $version = 'v1') {
+         *     return [
+         *         'extends' => "api:{$version}",
+         *         'prefix' => '/admin',
+         *     ];
+         * });
+         * ```
+         */
+        Route::macro('extendMount', function (string $name, callable $resolver) {
+            /** @var MountManager $manager */
+            $manager = app(MountManager::class);
+            $manager->extend($name, $resolver);
+        });
+
+        /**
+         * Route::extendAbility() — 扩展能力
+         *
+         * 注册一个新的能力，能力是接收 RouteRegistrar 并返回 RouteRegistrar 的管道函数。
+         *
+         * 用法：
+         * ```php
+         * Route::extendAbility('audit', function ($route) {
+         *     return $route->middleware('audit.log');
+         * });
+         * ```
+         */
+        Route::macro('extendAbility', function (string $name, callable $handler) {
+            /** @var MountManager $manager */
+            $manager = app(MountManager::class);
+            $manager->extendAbility($name, $handler);
+        });
+    }
+
+    /**
+     * 注册默认挂载点和能力
+     *
+     * 预定义：
+     * - auth 能力：注入 package_id 和 auth.tag 中间件
+     * - api mount：前缀 /api/{version}，能力 [auth]，默认 version=v1
+     */
+    protected function registerDefaultMounts(): void
+    {
+        /** @var MountManager $manager */
+        $manager = $this->app->make(MountManager::class);
+
+        // 注册 auth 能力
+        $manager->extendAbility('auth', function ($route) {
+            return $route->middleware('auth.tag');
+        });
+
+        // 注册 api mount
+        $manager->extend('api', function (string $version = 'v1') {
+            return [
+                'prefix' => "/api/{$version}",
+                'abilities' => ['auth'],
+            ];
         });
     }
 

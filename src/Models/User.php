@@ -62,20 +62,40 @@ class User extends Authenticatable implements HasModelAccess, HasPermission
     ];
 
     /**
+     * 判断当前用户是否为超级管理员
+     *
+     * 超级管理员拥有至高无上的权限，可以跳过所有权限检查。
+     * 默认为系统中第一个用户（id = 1），可通过配置 'nexus.super_admin_id' 自定义。
+     *
+     * @return bool
+     */
+    public function isSuperAdmin(): bool
+    {
+        $superAdminId = config('nexus.super_admin_id', 1);
+
+        return $this->id === (int) $superAdminId;
+    }
+
+    /**
      * 用户所属角色组
+     *
+     * 按 pivot_sort 升序排列，sort 越小优先级越高。
+     * 第一个角色为主角色，其权限优先级最高。
      */
     public function roles(): BelongsToMany
     {
-        return $this->belongsToMany(Role::class, 'role_user', 'user_id', 'role_id');
+        return $this->belongsToMany(Role::class, 'role_user', 'user_id', 'role_id')
+            ->withPivot('sort')
+            ->orderBy('pivot_sort');
     }
 
     /**
      * 获取用户对指定模型的访问权限集合
      *
-     * 穿透逻辑：
-     * 1. 查询用户自身权限
-     * 2. 查询用户所属角色的权限
-     * 3. 用户自身权限覆盖角色权限（相同 class + scope_key 时以用户为准）
+     * 穿透逻辑（严格优先级）：
+     * 1. 用户自身权限（最高优先级）
+     * 2. 角色组权限（按 sort 排序，第一个角色优先级最高，依次递减）
+     * 3. 高优先级覆盖低优先级（相同 class 时以高优先级为准）
      *
      * @param string|null $modelClass 目标模型全限定类名，null 表示所有
      * @return \Illuminate\Support\Collection<int, \MdtStar\Nexus\Models\ModelAccess>
@@ -87,17 +107,26 @@ class User extends Authenticatable implements HasModelAccess, HasPermission
             ->when($modelClass, fn($q) => $q->where('class', $modelClass))
             ->get();
 
-        // 2. 穿透角色组权限
+        // 2. 穿透角色组权限（按 sort 升序，第一个角色优先级最高）
+        //    高优先级角色覆盖低优先级角色的相同 class 记录
         $roleAccess = collect();
         foreach ($this->roles as $role) {
-            $roleAccess = $roleAccess->merge($role->getModelAccess($modelClass));
+            $currentRoleAccess = $role->getModelAccess($modelClass);
+
+            // 当前角色中，与已有记录相同 class 的剔除（已有记录保留，不覆盖）
+            $newAccess = $currentRoleAccess->reject(function ($current) use ($roleAccess) {
+                return $roleAccess->contains(function ($existing) use ($current) {
+                    return $existing->class === $current->class;
+                });
+            });
+
+            $roleAccess = $roleAccess->merge($newAccess);
         }
 
-        // 3. 合并：用户权限覆盖角色权限
+        // 3. 合并：用户权限覆盖角色权限（相同 class 时以用户为准）
         return $roleAccess->reject(function ($roleAcc) use ($userAccess) {
             return $userAccess->contains(function ($userAcc) use ($roleAcc) {
-                return $userAcc->class === $roleAcc->class
-                    && $userAcc->scope_key === $roleAcc->scope_key;
+                return $userAcc->class === $roleAcc->class;
             });
         })->concat($userAccess);
     }

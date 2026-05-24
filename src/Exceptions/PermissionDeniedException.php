@@ -21,6 +21,15 @@ use Symfony\Component\HttpKernel\Exception\HttpException;
 class PermissionDeniedException extends HttpException
 {
     /**
+     * 异常原因 key
+     *
+     * 记录构造时传入的语言包 key，用于测试中精确断言异常原因。
+     *
+     * @var string
+     */
+    protected string $reason;
+
+    /**
      * @param string $key exceptions 语言包中的键名
      * @param array $replace 语言包替换参数
      * @param string|null $locale 指定语言，null 使用当前 app locale
@@ -32,7 +41,18 @@ class PermissionDeniedException extends HttpException
         ?string $locale = null,
         ?\Throwable $previous = null
     ) {
+        $this->reason = $key;
         $message = __("nexus::exceptions.{$key}", $replace, $locale);
         parent::__construct(403, $message, $previous);
+    }
+
+    /**
+     * 获取异常原因 key
+     *
+     * @return string
+     */
+    public function getReason(): string
+    {
+        return $this->reason;
     }
 }

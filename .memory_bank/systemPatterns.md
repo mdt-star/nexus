@@ -28,6 +28,17 @@
 - `FilterRequest` 抽象基类 — 统一查询过滤的声明式规则定义
 - 具体 Request 类 — 定义字段白名单、操作符、验证规则、默认值
 
+### 代理模式（Proxy）
+- `MountInstance` 作为 `RouteRegistrar` 的代理
+- 拦截 `without{Ability}()` 调用，处理能力取消逻辑
+- 非 `without` 方法透明转发给 `RouteRegistrar`
+- 未注册的能力也转发给 `RouteRegistrar`，让用户扩展的 macro 有机会处理
+
+### 工厂模式
+- `MountManager` 作为 mount 实例的工厂
+- `extend()` 注册 mount 定义（延迟解析）
+- `mount()` / `instance()` 创建 MountInstance
+
 ## 关键交互
 
 ### 权限同步
@@ -77,6 +88,19 @@ NexusServiceProvider::boot()
     → DynamicConfigManager::mergeIntoConfig()
     → config()->set() 覆盖静态配置
     → config('nexus.*') 返回合并值
+```
+
+### 路由挂载
+```
+MountManager (工厂)
+    → extend() 注册 mount 定义
+    → extendAbility() 注册能力
+    → mount() / instance() 创建 MountInstance
+
+MountInstance (代理)
+    → __call('withoutAuth', ...) → 处理能力取消
+    → __call('get', ...) → 转发给 RouteRegistrar
+    → execute(callback) → 解析配置 + 应用能力 + 执行回调
 ```
 
 ## 命名规范

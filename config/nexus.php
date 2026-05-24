@@ -8,6 +8,14 @@
 return [
 
     /*
+     * 超级管理员配置
+     *
+     * 超级管理员拥有至高无上的权限，可以跳过所有权限检查。
+     * 默认为系统中第一个用户（id = 1）。
+     */
+    'super_admin_id' => env('NEXUS_SUPER_ADMIN_ID', 1),
+
+    /*
      * 功能权限标记配置（permissions 表）
      *
      * 控制前后端路由、页面元素的功能标记（Feature Flag）。
