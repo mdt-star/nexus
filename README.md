@@ -97,19 +97,6 @@ Route::api(function ($route) {
 });
 ```
 
-**取消能力：**
-```php
-// 取消 auth 能力（无需认证的路由）
-Route::mount('api')->withoutAuth(function ($route) {
-    $route->get('/public', [PublicController::class, 'index']);
-});
-
-// 链式调用
-Route::mount('api')->withoutAuth()->get('/public', function () {
-    return 'public';
-});
-```
-
 **扩展自定义 Mount：**
 ```php
 // 在模块的 ServiceProvider 中注册
@@ -125,13 +112,6 @@ Route::mount('admin', function ($route) {
     $route->get('/dashboard', [DashboardController::class, 'index']);
 });
 // 等价于：/api/v1/admin/dashboard，带 auth 中间件
-```
-
-**扩展能力：**
-```php
-Route::extendAbility('audit', function ($route) {
-    return $route->middleware('audit.log');
-});
 ```
 
 ### 4. 数据范围 Trait
@@ -268,7 +248,7 @@ Model::query() → HasDataScope::apply()
 php vendor/bin/phpunit
 ```
 
-当前测试覆盖：82 个测试，145 个断言，涵盖 HasPermissionTrait、PermissionSyncer、Package、PermissionDeniedException、User 穿透 Role 集成测试、Mount 路由挂载系统。
+当前测试覆盖：117 个测试，232 个断言，涵盖 HasPermissionTrait、PermissionSyncer、Package、PermissionDeniedException、User 穿透 Role 集成测试、Mount 路由挂载系统、Desktop/DesktopItem API 集成测试。
 
 ## 许可证
 
