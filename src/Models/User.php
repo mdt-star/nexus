@@ -4,6 +4,7 @@ namespace MdtStar\Nexus\Models;
 
 use MdtStar\Nexus\Contracts\HasModelAccess;
 use MdtStar\Nexus\Contracts\HasPermission;
+use MdtStar\Nexus\Traits\Filterable;
 use MdtStar\Nexus\Traits\HasModelAccessTrait;
 use MdtStar\Nexus\Traits\HasPermissionTrait;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -39,6 +40,7 @@ use Illuminate\Support\Facades\Cache;
  */
 class User extends Authenticatable implements HasModelAccess, HasPermission
 {
+    use Filterable;
     use HasModelAccessTrait;
     use HasPermissionTrait {
         getPermissionTags as private getOwnPermissionTags;

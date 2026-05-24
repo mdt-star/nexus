@@ -41,25 +41,14 @@ return [
     ],
 
     /*
-     * 菜单配置
-     */
-    'menus' => [
-        // 菜单缓存 TTL（秒），0 表示不缓存
-        'cache_ttl' => 3600,
-
-        // 顶级菜单默认图标
-        'default_icon' => 'fa-folder',
-    ],
-
-    /*
      * 桌面配置
      */
     'desktop' => [
         // 每个用户最大桌面数
         'max_desktops' => 5,
 
-        // 每个桌面最大菜单数
-        'max_menus_per_desktop' => 50,
+        // 每个桌面最大项数
+        'max_items_per_desktop' => 50,
     ],
 
     /*

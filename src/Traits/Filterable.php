@@ -72,7 +72,7 @@ trait Filterable
         match ($operator) {
             'eq'          => $query->where($field, $value),
             'neq'         => $query->where($field, '!=', $value),
-            'like'        => $query->where($field, 'like', $value),
+            'like'        => $query->where($field, 'like', str_contains($value, '%') ? $value : '%' . $value . '%'),
             'gt'          => $query->where($field, '>', $value),
             'gte'         => $query->where($field, '>=', $value),
             'lt'          => $query->where($field, '<', $value),

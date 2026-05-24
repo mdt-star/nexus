@@ -12,11 +12,10 @@ use Illuminate\Support\Facades\Route;
  *
  * 测试路由挂载系统的核心功能：
  * - mount 注册与解析
- * - 能力注册与应用
+ * - 中间件配置
  * - 继承（extends）
  * - 参数传递
  * - 快捷宏
- * - withoutAuth 链式调用
  * - 前缀合并规则
  * - $route 参数传递
  */
@@ -37,14 +36,14 @@ class MountManagerTest extends TestCase
         $this->manager->extend('test', function () {
             return [
                 'prefix' => '/test',
-                'abilities' => [],
+                'middlewares' => [],
             ];
         });
 
         $resolved = $this->manager->resolveMount('test');
 
         $this->assertEquals('/test', $resolved['prefix']);
-        $this->assertEquals([], $resolved['abilities']);
+        $this->assertEquals([], $resolved['middlewares']);
     }
 
     /** @test */
@@ -53,7 +52,7 @@ class MountManagerTest extends TestCase
         $this->manager->extend('test', function (string $version = 'v1') {
             return [
                 'prefix' => "/api/{$version}",
-                'abilities' => [],
+                'middlewares' => [],
             ];
         });
 
@@ -65,15 +64,13 @@ class MountManagerTest extends TestCase
     /** @test */
     public function it_can_inherit_from_parent_mount()
     {
-        // 父 mount
         $this->manager->extend('parent', function () {
             return [
                 'prefix' => '/parent',
-                'abilities' => ['auth'],
+                'middlewares' => ['auth.tag'],
             ];
         });
 
-        // 子 mount 继承父 mount（相对路径，追加到父级后面）
         $this->manager->extend('child', function () {
             return [
                 'extends' => 'parent',
@@ -84,7 +81,7 @@ class MountManagerTest extends TestCase
         $resolved = $this->manager->resolveMount('child');
 
         $this->assertEquals('/parent/child', $resolved['prefix']);
-        $this->assertEquals(['auth'], $resolved['abilities']);
+        $this->assertEquals(['auth.tag'], $resolved['middlewares']);
     }
 
     /** @test */
@@ -93,38 +90,37 @@ class MountManagerTest extends TestCase
         $this->manager->extend('parent1', function () {
             return [
                 'prefix' => '/p1',
-                'abilities' => ['auth'],
+                'middlewares' => ['auth.tag'],
             ];
         });
 
         $this->manager->extend('parent2', function () {
             return [
-                'prefix' => 'p2', // 相对路径，追加到父级后面
-                'abilities' => ['audit'],
+                'prefix' => 'p2',
+                'middlewares' => ['audit.log'],
             ];
         });
 
         $this->manager->extend('child', function () {
             return [
                 'extends' => ['parent1', 'parent2'],
-                'prefix' => 'child', // 相对路径，追加
+                'prefix' => 'child',
             ];
         });
 
         $resolved = $this->manager->resolveMount('child');
 
-        // 第一个父级前缀为 base，第二个追加
         $this->assertEquals('/p1/p2/child', $resolved['prefix']);
-        $this->assertEquals(['auth', 'audit'], $resolved['abilities']);
+        $this->assertEquals(['auth.tag', 'audit.log'], $resolved['middlewares']);
     }
 
     /** @test */
-    public function it_can_merge_child_abilities_with_parent()
+    public function it_can_merge_child_middlewares_with_parent()
     {
         $this->manager->extend('parent', function () {
             return [
                 'prefix' => '/parent',
-                'abilities' => ['auth', 'audit'],
+                'middlewares' => ['auth.tag', 'audit.log'],
             ];
         });
 
@@ -132,31 +128,29 @@ class MountManagerTest extends TestCase
             return [
                 'extends' => 'parent',
                 'prefix' => 'child',
-                'abilities' => ['extra'], // 合并到父级能力中
+                'middlewares' => ['extra.mw'],
             ];
         });
 
         $resolved = $this->manager->resolveMount('child');
 
-        // 子级能力合并到父级，取并集
-        $this->assertEquals(['auth', 'audit', 'extra'], $resolved['abilities']);
+        $this->assertEquals(['auth.tag', 'audit.log', 'extra.mw'], $resolved['middlewares']);
     }
 
     /** @test */
     public function it_handles_relative_prefix()
     {
-        // 相对路径（不以 / 开头）→ 追加到父级后面
         $this->manager->extend('parent', function () {
             return [
                 'prefix' => '/api/v1',
-                'abilities' => [],
+                'middlewares' => [],
             ];
         });
 
         $this->manager->extend('child', function () {
             return [
                 'extends' => 'parent',
-                'prefix' => 'admin', // 相对路径，追加
+                'prefix' => 'admin',
             ];
         });
 
@@ -168,47 +162,23 @@ class MountManagerTest extends TestCase
     /** @test */
     public function it_handles_absolute_prefix()
     {
-        // 绝对路径（以 / 开头）→ 直接替换父级前缀
         $this->manager->extend('parent', function () {
             return [
                 'prefix' => '/api/v1',
-                'abilities' => [],
+                'middlewares' => [],
             ];
         });
 
         $this->manager->extend('child', function () {
             return [
                 'extends' => 'parent',
-                'prefix' => '/api/v2', // 绝对路径，替换父级
+                'prefix' => '/api/v2',
             ];
         });
 
         $resolved = $this->manager->resolveMount('child');
 
         $this->assertEquals('/api/v2', $resolved['prefix']);
-    }
-
-    /** @test */
-    public function it_can_register_and_apply_abilities()
-    {
-        $this->manager->extendAbility('test_ability', function ($route) {
-            return $route->middleware('test.middleware');
-        });
-
-        $this->manager->extend('test', function () {
-            return [
-                'prefix' => '/test',
-                'abilities' => ['test_ability'],
-            ];
-        });
-
-        // 验证能力已注册
-        $reflection = new \ReflectionClass($this->manager);
-        $abilitiesProperty = $reflection->getProperty('abilities');
-        $abilitiesProperty->setAccessible(true);
-        $abilities = $abilitiesProperty->getValue($this->manager);
-
-        $this->assertArrayHasKey('test_ability', $abilities);
     }
 
     /** @test */
@@ -221,41 +191,20 @@ class MountManagerTest extends TestCase
     }
 
     /** @test */
-    public function it_throws_exception_for_undefined_ability()
-    {
-        $this->manager->extend('test', function () {
-            return [
-                'prefix' => '/test',
-                'abilities' => ['undefined_ability'],
-            ];
-        });
-
-        $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('Ability [undefined_ability] is not defined.');
-
-        // 尝试应用能力
-        $route = Route::prefix('/test');
-        $this->manager->applyAbility($route, 'undefined_ability');
-    }
-
-    /** @test */
     public function it_can_parse_spec_correctly()
     {
         $reflection = new \ReflectionClass($this->manager);
         $method = $reflection->getMethod('parseSpec');
         $method->setAccessible(true);
 
-        // 无参数
         [$name, $params] = $method->invoke($this->manager, 'api');
         $this->assertEquals('api', $name);
         $this->assertEquals([], $params);
 
-        // 单参数
         [$name, $params] = $method->invoke($this->manager, 'api:v2');
         $this->assertEquals('api', $name);
         $this->assertEquals(['v2'], $params);
 
-        // 多参数
         [$name, $params] = $method->invoke($this->manager, 'org:acme-corp,v2');
         $this->assertEquals('org', $name);
         $this->assertEquals(['acme-corp', 'v2'], $params);
@@ -268,11 +217,8 @@ class MountManagerTest extends TestCase
         $method = $reflection->getMethod('mergePrefix');
         $method->setAccessible(true);
 
-        // 绝对路径（以 / 开头）→ 直接替换
         $this->assertEquals('/admin', $method->invoke($this->manager, '/api/v1', '/admin'));
         $this->assertEquals('/api/v2', $method->invoke($this->manager, '/api/v1', '/api/v2'));
-
-        // 相对路径（不以 / 开头）→ 追加到父级后面
         $this->assertEquals('/api/v1/admin', $method->invoke($this->manager, '/api/v1', 'admin'));
         $this->assertEquals('/api/v1', $method->invoke($this->manager, '', 'api/v1'));
     }
@@ -293,15 +239,13 @@ class MountManagerTest extends TestCase
     /** @test */
     public function it_registers_shortcut_macro()
     {
-        // 注册 mount
         $this->manager->extend('test', function () {
             return [
                 'prefix' => '/test',
-                'abilities' => [],
+                'middlewares' => [],
             ];
         });
 
-        // 验证快捷宏已注册
         $this->assertTrue(Route::hasMacro('test'));
     }
 
@@ -311,13 +255,12 @@ class MountManagerTest extends TestCase
         $this->manager->extend('test', function () {
             return [
                 'prefix' => '/test',
-                'abilities' => [],
+                'middlewares' => [],
             ];
         });
 
         $routeReceived = null;
 
-        // 通过快捷宏调用，回调接收 $route 参数
         Route::test(function ($route) use (&$routeReceived) {
             $routeReceived = $route;
         });
@@ -331,7 +274,7 @@ class MountManagerTest extends TestCase
         $this->manager->extend('test', function (string $version = 'v1') {
             return [
                 'prefix' => "/test/{$version}",
-                'abilities' => [],
+                'middlewares' => [],
             ];
         });
 
@@ -345,12 +288,12 @@ class MountManagerTest extends TestCase
     }
 
     /** @test */
-    public function it_can_create_mount_instance_without_auth()
+    public function it_can_create_mount_instance()
     {
         $this->manager->extend('test', function () {
             return [
                 'prefix' => '/test',
-                'abilities' => ['auth'],
+                'middlewares' => [],
             ];
         });
 
@@ -360,146 +303,15 @@ class MountManagerTest extends TestCase
     }
 
     /** @test */
-    public function mount_instance_without_auth_adds_to_without_list()
-    {
-        // 注册 auth 能力
-        $this->manager->extendAbility('auth', function ($route) {
-            return $route->middleware('auth:api');
-        });
-
-        $this->manager->extend('test', function () {
-            return [
-                'prefix' => '/test',
-                'abilities' => ['auth'],
-            ];
-        });
-
-        $instance = $this->manager->instance('test')->withoutAuth();
-
-        // 通过反射检查 $without 属性，验证 withoutAuth() 将 auth 加入了取消列表
-        $reflection = new \ReflectionClass($instance);
-        $property = $reflection->getProperty('without');
-        $property->setAccessible(true);
-        $without = $property->getValue($instance);
-
-        $this->assertArrayHasKey('auth', $without);
-        $this->assertTrue($without['auth']);
-    }
-
-    /** @test */
-    public function mount_instance_without_any_ability_adds_to_without_list()
-    {
-        // 注册多个能力
-        $this->manager->extendAbility('auth', function ($route) {
-            return $route->middleware('auth:api');
-        });
-        $this->manager->extendAbility('audit', function ($route) {
-            return $route->middleware('audit.log');
-        });
-
-        $this->manager->extend('test', function () {
-            return [
-                'prefix' => '/test',
-                'abilities' => ['auth', 'audit'],
-            ];
-        });
-
-        // 通过 __call 动态取消 audit 能力
-        $instance = $this->manager->instance('test')->withoutAudit();
-
-        // 验证 audit 被加入取消列表
-        $reflection = new \ReflectionClass($instance);
-        $property = $reflection->getProperty('without');
-        $property->setAccessible(true);
-        $without = $property->getValue($instance);
-
-        $this->assertArrayHasKey('audit', $without);
-        $this->assertTrue($without['audit']);
-        // auth 不在取消列表中
-        $this->assertArrayNotHasKey('auth', $without);
-    }
-
-    /** @test */
-    public function mount_instance_undefined_ability_forwards_to_route_registrar()
-    {
-        // 只注册 auth，不注册 audit
-        $this->manager->extendAbility('auth', function ($route) {
-            return $route->middleware('auth:api');
-        });
-
-        $this->manager->extend('test', function () {
-            return [
-                'prefix' => '/test',
-                'abilities' => ['auth'],
-            ];
-        });
-
-        // withoutAudit 未注册，会转交给 RouteRegistrar
-        // RouteRegistrar 没有 withoutAudit 方法，所以抛异常
-        $this->expectException(\BadMethodCallException::class);
-
-        $this->manager->instance('test')->withoutAudit();
-    }
-
-    /** @test */
-    public function mount_without_ability_skips_that_ability_in_resolved_config()
-    {
-        // 注册 auth 能力
-        $this->manager->extendAbility('auth', function ($route) {
-            return $route->middleware('auth:api');
-        });
-
-        $this->manager->extend('test', function () {
-            return [
-                'prefix' => '/test',
-                'abilities' => ['auth'],
-            ];
-        });
-
-        // 直接测试 mount() 方法，传入带 without 的配置
-        // 通过 resolveMount 验证 without 被正确传递
-        $this->manager->extend('test_without_auth', function () {
-            return [
-                'extends' => 'test',
-                'prefix' => 'test',
-                'without' => ['auth'],
-            ];
-        });
-
-        $resolved = $this->manager->resolveMount('test_without_auth');
-
-        $this->assertEquals(['auth'], $resolved['abilities']);
-        $this->assertEquals(['auth'], $resolved['without']);
-    }
-
-    /** @test */
-    public function mount_instance_forwards_non_without_methods_to_route_registrar()
-    {
-        $this->manager->extend('test', function () {
-            return [
-                'prefix' => '/test',
-                'abilities' => [],
-            ];
-        });
-
-        // 非 without 方法会转交给 RouteRegistrar
-        // RouteRegistrar 没有 foo 方法，所以抛异常
-        $this->expectException(\BadMethodCallException::class);
-
-        $this->manager->instance('test')->foo();
-    }
-
-    /** @test */
     public function mount_instance_forwards_get_to_route_registrar()
     {
         $this->manager->extend('test', function () {
             return [
                 'prefix' => '/test',
-                'abilities' => [],
+                'middlewares' => [],
             ];
         });
 
-        // get() 是 RouteRegistrar 的合法方法，返回 Route 对象
         $result = $this->manager->instance('test')->get('/hello', function () {
             return 'hello';
         });
@@ -513,11 +325,10 @@ class MountManagerTest extends TestCase
         $this->manager->extend('test', function () {
             return [
                 'prefix' => '/test',
-                'abilities' => [],
+                'middlewares' => [],
             ];
         });
 
-        // post() 是 RouteRegistrar 的合法方法，返回 Route 对象
         $result = $this->manager->instance('test')->post('/submit', function () {
             return 'submitted';
         });
@@ -531,11 +342,10 @@ class MountManagerTest extends TestCase
         $this->manager->extend('test', function () {
             return [
                 'prefix' => '/test',
-                'abilities' => [],
+                'middlewares' => [],
             ];
         });
 
-        // middleware() 是 RouteRegistrar 的合法方法，返回 RouteRegistrar
         $result = $this->manager->instance('test')->middleware('auth');
 
         $this->assertInstanceOf(\Illuminate\Routing\RouteRegistrar::class, $result);
@@ -547,11 +357,10 @@ class MountManagerTest extends TestCase
         $this->manager->extend('test', function () {
             return [
                 'prefix' => '/test',
-                'abilities' => [],
+                'middlewares' => [],
             ];
         });
 
-        // name() 是 RouteRegistrar 的合法方法，返回 RouteRegistrar
         $result = $this->manager->instance('test')->name('test.');
 
         $this->assertInstanceOf(\Illuminate\Routing\RouteRegistrar::class, $result);
@@ -563,38 +372,15 @@ class MountManagerTest extends TestCase
         $this->manager->extend('test', function () {
             return [
                 'prefix' => '/test',
-                'abilities' => [],
+                'middlewares' => [],
             ];
         });
 
-        // group() 是 RouteRegistrar 的合法方法，返回 RouteRegistrar
         $result = $this->manager->instance('test')->group(function () {
-            // 路由定义
+            //
         });
 
         $this->assertInstanceOf(\Illuminate\Routing\RouteRegistrar::class, $result);
-    }
-
-    /** @test */
-    public function mount_instance_chain_get_after_without_auth()
-    {
-        $this->manager->extendAbility('auth', function ($route) {
-            return $route->middleware('auth:api');
-        });
-
-        $this->manager->extend('test', function () {
-            return [
-                'prefix' => '/test',
-                'abilities' => ['auth'],
-            ];
-        });
-
-        // withoutAuth() 后链式调用 get()，返回 Route 对象
-        $result = $this->manager->instance('test')->withoutAuth()->get('/public', function () {
-            return 'public';
-        });
-
-        $this->assertInstanceOf(\Illuminate\Routing\Route::class, $result);
     }
 
     /** @test */
@@ -603,7 +389,7 @@ class MountManagerTest extends TestCase
         $this->manager->extend('test', function () {
             return [
                 'prefix' => '/test',
-                'abilities' => [],
+                'middlewares' => [],
             ];
         });
 
@@ -617,47 +403,63 @@ class MountManagerTest extends TestCase
     }
 
     /** @test */
-    public function without_auth_callback_receives_route_instance()
-    {
-        $this->manager->extendAbility('auth', function ($route) {
-            return $route->middleware('auth:api');
-        });
-
-        $this->manager->extend('test', function () {
-            return [
-                'prefix' => '/test',
-                'abilities' => ['auth'],
-            ];
-        });
-
-        $routeReceived = null;
-
-        $this->manager->instance('test')->withoutAuth(function ($route) use (&$routeReceived) {
-            $routeReceived = $route;
-        });
-
-        $this->assertInstanceOf(MountInstance::class, $routeReceived);
-    }
-
-    /** @test */
     public function it_can_inherit_with_parameters()
     {
         $this->manager->extend('parent', function (string $version = 'v1') {
             return [
                 'prefix' => "/api/{$version}",
-                'abilities' => ['auth'],
+                'middlewares' => ['auth.tag'],
             ];
         });
 
         $this->manager->extend('child', function () {
             return [
                 'extends' => 'parent:v2',
-                'prefix' => 'child', // 相对路径，追加
+                'prefix' => 'child',
             ];
         });
 
         $resolved = $this->manager->resolveMount('child');
 
         $this->assertEquals('/api/v2/child', $resolved['prefix']);
+        $this->assertEquals(['auth.tag'], $resolved['middlewares']);
+    }
+
+    /** @test */
+    public function it_resolves_middlewares_correctly()
+    {
+        $this->manager->extend('test', function () {
+            return [
+                'prefix' => '/test',
+                'middlewares' => ['api', 'auth.tag'],
+            ];
+        });
+
+        $resolved = $this->manager->resolveMount('test');
+
+        $this->assertEquals(['api', 'auth.tag'], $resolved['middlewares']);
+    }
+
+    /** @test */
+    public function it_merges_middlewares_from_parent_and_child()
+    {
+        $this->manager->extend('parent', function () {
+            return [
+                'prefix' => '/parent',
+                'middlewares' => ['api'],
+            ];
+        });
+
+        $this->manager->extend('child', function () {
+            return [
+                'extends' => 'parent',
+                'prefix' => 'child',
+                'middlewares' => ['auth.tag'],
+            ];
+        });
+
+        $resolved = $this->manager->resolveMount('child');
+
+        $this->assertEquals(['api', 'auth.tag'], $resolved['middlewares']);
     }
 }

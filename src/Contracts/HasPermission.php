@@ -9,7 +9,7 @@ use Illuminate\Support\Collection;
  * 功能权限主体接口
  *
  * 实现此接口的模型（User、Role 等）可通过多态关联获取已授权的 tag 列表。
- * 中间件通过此接口统一校验权限，不直接操作 ModelHasPermission 表。
+ * 中间件通过此接口统一校验权限，不直接操作 Permissionable 表。
  */
 interface HasPermission
 {

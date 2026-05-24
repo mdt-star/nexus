@@ -311,7 +311,7 @@ class HasDataScopeTest extends TestCase
             'password' => bcrypt('password'),
         ]);
 
-        $role = Role::create(['name' => 'admin']);
+        $role = Role::create(['name' => 'admin', 'slug' => 'admin']);
 
         // 给角色授权
         ModelAccess::create([
@@ -341,7 +341,7 @@ class HasDataScopeTest extends TestCase
             'password' => bcrypt('password'),
         ]);
 
-        $role = Role::create(['name' => 'admin']);
+        $role = Role::create(['name' => 'admin', 'slug' => 'admin']);
 
         // 给角色授权
         ModelAccess::create([
@@ -370,7 +370,7 @@ class HasDataScopeTest extends TestCase
             'password' => bcrypt('password'),
         ]);
 
-        $role = Role::create(['name' => 'admin']);
+        $role = Role::create(['name' => 'admin', 'slug' => 'admin']);
 
         // 给用户授权（can_read = false）
         ModelAccess::create([
@@ -468,7 +468,7 @@ class HasDataScopeTest extends TestCase
             'password' => bcrypt('password'),
         ]);
 
-        $role = Role::create(['name' => 'editor']);
+        $role = Role::create(['name' => 'editor', 'slug' => 'editor']);
         $user->roles()->attach($role);
 
         ModelAccess::create([
@@ -494,7 +494,7 @@ class HasDataScopeTest extends TestCase
             'password' => bcrypt('password'),
         ]);
 
-        $role = Role::create(['name' => 'editor']);
+        $role = Role::create(['name' => 'editor', 'slug' => 'editor']);
         $user->roles()->attach($role);
 
         // 角色有 DataScopeModel 的读权限
@@ -532,7 +532,7 @@ class HasDataScopeTest extends TestCase
             'password' => bcrypt('password'),
         ]);
 
-        $role = Role::create(['name' => 'editor']);
+        $role = Role::create(['name' => 'editor', 'slug' => 'editor']);
         $user->roles()->attach($role);
 
         // 角色有 DataScopeModel 的权限（scope_key = 'scope_a'）

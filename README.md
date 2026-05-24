@@ -218,7 +218,7 @@ $user->flushPermissionCache();
 |------|------|
 | Permission | 功能权限节点，通过 tag 标识 |
 | Package | 模块包，关联一组权限 |
-| ModelHasPermission | 多态关联，将 tag 授予 User/Role |
+| Permissionable | 多态关联，将 tag 授予 User/Role（原 ModelHasPermission） |
 | Role | 角色组，支持 tag 穿透到用户 |
 | Menu | 菜单发布池，前端可用的菜单项 |
 | Desktop | 用户桌面，支持自定义布局 |

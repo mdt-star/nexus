@@ -3,7 +3,7 @@
 namespace MdtStar\Nexus\Tests\Unit;
 
 use MdtStar\Nexus\Contracts\HasPermission;
-use MdtStar\Nexus\Models\ModelHasPermission;
+use MdtStar\Nexus\Models\Permissionable;
 use MdtStar\Nexus\Models\Package;
 use MdtStar\Nexus\Tests\TestCase;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -44,13 +44,13 @@ class HasPermissionTraitTest extends TestCase
         $model = $this->createPermissionModel();
         $package = Package::create(['name' => 'test/package']);
 
-        ModelHasPermission::create([
+        Permissionable::create([
             'model_type' => get_class($model),
             'model_id' => $model->id,
             'tag' => 'list',
             'package_id' => $package->id,
         ]);
-        ModelHasPermission::create([
+        Permissionable::create([
             'model_type' => get_class($model),
             'model_id' => $model->id,
             'tag' => 'add',
@@ -81,7 +81,7 @@ class HasPermissionTraitTest extends TestCase
         $this->assertCount(0, $tags);
 
         // 直接插入数据（绕过模型）
-        ModelHasPermission::create([
+        Permissionable::create([
             'model_type' => get_class($model),
             'model_id' => $model->id,
             'tag' => 'list',
@@ -104,7 +104,7 @@ class HasPermissionTraitTest extends TestCase
         $model = $this->createPermissionModel();
         $package = Package::create(['name' => 'test/package']);
 
-        ModelHasPermission::create([
+        Permissionable::create([
             'model_type' => get_class($model),
             'model_id' => $model->id,
             'tag' => 'list',
@@ -121,7 +121,7 @@ class HasPermissionTraitTest extends TestCase
     {
         $model = $this->createPermissionModel();
 
-        ModelHasPermission::create([
+        Permissionable::create([
             'model_type' => get_class($model),
             'model_id' => $model->id,
             'tag' => 'global:tag',
@@ -162,7 +162,7 @@ class HasPermissionTraitTest extends TestCase
     {
         $model = $this->createPermissionModel();
 
-        ModelHasPermission::create([
+        Permissionable::create([
             'model_type' => get_class($model),
             'model_id' => $model->id,
             'tag' => 'list',

@@ -16,34 +16,40 @@
 - [x] HasPermission 接口 + HasPermissionTrait（多态 + 缓存 + hasTag）
 - [x] User 模型实现 HasPermission，穿透 Role 合并 tag
 - [x] Role 模型实现 HasPermission
-- [x] ModelHasPermission 观察者备忘（单对象级缓存清空）
+- [x] Permissionable 观察者备忘（单对象级缓存清空）
 - [x] 测试覆盖（33 个测试全部通过）
 - [x] 解决多角色权限冲突问题
 - [x] 51 个测试全部通过
 - [x] Route Mount 系统实现
-  - [x] 创建 MountManager 核心类
-  - [x] 创建 MountInstance 链式调用类
-  - [x] 注册 Route::mount() 宏
-  - [x] 注册 Route::extendMount() 宏
-  - [x] 注册 Route::extendAbility() 宏
-  - [x] 快捷宏自动注册
-  - [x] withoutAuth 链式调用
-  - [x] 预定义 api mount + auth ability
 - [x] 超级管理员
-  - [x] User::isSuperAdmin()（可配置 super_admin_id）
-  - [x] VerifyAuthTagMiddleware 超级管理员放行
-  - [x] HasDataScope 超级管理员跳过
-- [x] 更新路由文件使用新的 mount 系统
-- [x] 编写 Mount 系统测试（17 个测试全部通过）
-- [x] 全部 68 个测试通过
-- [x] 更新设计文档（Mount 系统 + 超级管理员章节）
-- [x] MountInstance 重构为 RouteRegistrar 代理模式
-  - [x] 内部持有 RouteRegistrar 实例（懒加载）
-  - [x] without{Ability} 能力已注册 → 加入取消列表
-  - [x] without{Ability} 能力未注册 → 转给 RouteRegistrar
-  - [x] 非 without 方法（get/post/group 等）→ 转给 RouteRegistrar
-  - [x] $route 参数传递机制（回调接收 MountInstance）
 - [x] 全部 82 个测试通过（145 个断言）
+- [x] **2026-05-24 接口重构：**
+  - [x] Desktop 表增加 `is_default` 字段
+  - [x] 桌面列表支持按 user_id 筛选
+  - [x] desktop_menus → desktop_items（去掉 menu_id 关联，改为直接存储字段）
+  - [x] 删除 menus 表及相关代码（Menu 模型、MenuTreeBuilder、迁移文件）
+  - [x] 取消 api/admin/model-accesses 接口（删除 adminIndex + AdminModelAccessFilterRequest）
+  - [x] 添加 admin 默认路由域（继承 api，前缀 /api/{version}/admin）
+  - [x] 更新设计文档和记忆银行
+  - [x] 82 个测试全部通过
+- [x] **2026-05-24 补充接口：**
+  - [x] 新增 8 个 Controller（Desktop/DesktopItem/User/Role/Permission/Permissionable/Package/ModelScope）
+  - [x] 新增 19 个 Form Request
+  - [x] 新增 ModelScopeSyncer 服务（从 composer.json 同步 model_scopes）
+  - [x] 路由统一使用 Route::admin() 写法
+  - [x] 创建 API 接口文档 docs/api/README.md
+  - [x] 82 个测试全部通过
+- [x] **2026-05-24 修复：**
+  - [x] 修复隐式模型绑定不生效（auth 能力添加 SubstituteBindings 中间件）
+  - [x] 修复 Filterable like 操作符缺少通配符（自动添加 %）
+  - [x] 124 个测试全部通过（243 个断言）
+- [x] **2026-05-25 重构：去掉能力系统 + instance，改用 middlewares 声明式配置**
+  - [x] 去掉 `MountManager::extendAbility()` / `hasAbility()` / `applyAbility()`
+  - [x] 去掉 `MountInstance` 中的 `without` 机制和反射
+  - [x] mount 配置 `abilities` → `middlewares`
+  - [x] 去掉 `instance` 回调
+  - [x] 更新测试
+  - [x] 117 个测试全部通过（232 个断言）
 
 ## 待办
 - [ ] 无

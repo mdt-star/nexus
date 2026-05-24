@@ -2,6 +2,7 @@
 
 namespace MdtStar\Nexus\Models;
 
+use MdtStar\Nexus\Traits\Filterable;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -17,6 +18,8 @@ use Illuminate\Support\Facades\Cache;
  */
 class Package extends Model
 {
+    use Filterable;
+
     protected $table = 'packages';
 
     protected $fillable = [

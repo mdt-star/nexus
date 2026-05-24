@@ -2,6 +2,7 @@
 
 namespace MdtStar\Nexus\Models;
 
+use MdtStar\Nexus\Traits\Filterable;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -17,6 +18,8 @@ use Illuminate\Database\Eloquent\Model;
  */
 class ModelScope extends Model
 {
+    use Filterable;
+
     protected $table = 'model_scopes';
 
     protected $fillable = [

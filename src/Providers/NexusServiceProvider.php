@@ -247,47 +247,35 @@ class NexusServiceProvider extends ServiceProvider
             $manager->extend($name, $resolver);
         });
 
-        /**
-         * Route::extendAbility() — 扩展能力
-         *
-         * 注册一个新的能力，能力是接收 RouteRegistrar 并返回 RouteRegistrar 的管道函数。
-         *
-         * 用法：
-         * ```php
-         * Route::extendAbility('audit', function ($route) {
-         *     return $route->middleware('audit.log');
-         * });
-         * ```
-         */
-        Route::macro('extendAbility', function (string $name, callable $handler) {
-            /** @var MountManager $manager */
-            $manager = app(MountManager::class);
-            $manager->extendAbility($name, $handler);
-        });
+        // extendAbility 宏已移除，改用 middlewares 声明式配置
     }
 
     /**
-     * 注册默认挂载点和能力
+     * 注册默认挂载点
      *
      * 预定义：
-     * - auth 能力：注入 package_id 和 auth.tag 中间件
-     * - api mount：前缀 /api/{version}，能力 [auth]，默认 version=v1
+     * - api mount：前缀 /api/{version}，中间件 [api, auth.tag]，默认 version=v1
+     * - admin mount：继承 api 域，追加前缀 /admin
      */
     protected function registerDefaultMounts(): void
     {
         /** @var MountManager $manager */
         $manager = $this->app->make(MountManager::class);
 
-        // 注册 auth 能力
-        $manager->extendAbility('auth', function ($route) {
-            return $route->middleware('auth.tag');
-        });
-
         // 注册 api mount
         $manager->extend('api', function (string $version = 'v1') {
             return [
                 'prefix' => "/api/{$version}",
-                'abilities' => ['auth'],
+                'middlewares' => ['api', 'auth.tag'],
+            ];
+        });
+
+        // 注册 admin mount（继承 api 域）
+        // 使用相对路径「admin」（不以 / 开头），以追加到 api 前缀之后
+        $manager->extend('admin', function (string $version = 'v1') {
+            return [
+                'extends' => "api:{$version}",
+                'prefix' => 'admin',
             ];
         });
     }

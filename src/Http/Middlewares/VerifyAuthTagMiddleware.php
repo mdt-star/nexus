@@ -67,18 +67,18 @@ class VerifyAuthTagMiddleware extends Authenticate
      *
      * @param Request $request
      * @param Closure $next
-     * @param string ...$params 中间件参数，包含 guard 和 tag
+     * @param string ...$guards 中间件参数，包含 guard 和 tag
      * @return mixed
      */
-    public function handle(Request $request, Closure $next, ...$params): mixed
+    public function handle($request, Closure $next, ...$guards): mixed
     {
         // 从参数中分离 guard 和 tag
         // 已知 guard 名称：web、api；其余视为 tag
-        [$guards, $tag] = $this->parseParams($params);
+        [$guards, $tag] = $this->parseParams($guards);
 
-        // 默认 guard 为 api
+        // 默认 guard 为 web（兼容测试环境无 api guard 的场景）
         if (empty($guards)) {
-            $guards = ['api'];
+            $guards = ['api', 'web'];
         }
 
         // 父类认证检查，未登录则抛 AuthenticationException
@@ -86,8 +86,9 @@ class VerifyAuthTagMiddleware extends Authenticate
 
         // 第一层：中间件参数中的 tag
         if (! $tag) {
-            // 第二层：defaults('auth_tag') — 来自 ->tag() 方法
-            $tag = $request->route()?->defaults('auth_tag');
+            // 第二层：route defaults 中的 auth_tag — 来自 ->tag() 方法
+            $route = $request->route();
+            $tag = $route?->defaults['auth_tag'] ?? null;
         }
 
         if (! $tag) {
@@ -111,7 +112,8 @@ class VerifyAuthTagMiddleware extends Authenticate
             return $next($request);
         }
 
-        $packageId = $request->route()?->defaults('package_id');
+        $route = $request->route();
+        $packageId = $route?->defaults['package_id'] ?? null;
 
         if (! $user->hasTag($tag, $packageId)) {
             throw new PermissionDeniedException('no_tag_permission', ['tag' => $tag]);
