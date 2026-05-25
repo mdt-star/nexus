@@ -66,4 +66,26 @@ return [
         // 配置键前缀
         'key_prefix' => 'nexus.',
     ],
+
+    /*
+     * 参数字段风格转换（Case Middleware）
+     *
+     * 控制请求参数和响应 JSON 的 key 命名风格。
+     * 前端可通过 Header 或参数声明使用 camelCase 还是 snake_case。
+     *
+     * 检测优先级：
+     * 1. Header（如 X-Case: camel）
+     * 2. 请求参数（如 _case=camel）
+     * 3. 以下 default 配置
+     */
+    'case' => [
+        // 默认风格：snake 或 camel
+        'default' => 'snake',
+
+        // 前端通过 Header 声明风格时的 Header 名称
+        'header_name' => 'X-Case',
+
+        // 前端通过请求参数声明风格时的参数名称
+        'parameter_name' => '_case',
+    ],
 ];

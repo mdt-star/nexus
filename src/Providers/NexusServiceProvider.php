@@ -3,6 +3,7 @@
 namespace MdtStar\Nexus\Providers;
 
 use MdtStar\Nexus\Console\SyncPermissionsCommand;
+use MdtStar\Nexus\Http\Middlewares\CaseMiddleware;
 use MdtStar\Nexus\Http\Middlewares\VerifyAuthTagMiddleware;
 use MdtStar\Nexus\Jobs\SyncPlatformPackagesJob;
 use MdtStar\Nexus\Models\Package;
@@ -115,10 +116,12 @@ class NexusServiceProvider extends ServiceProvider
      * 注册中间件别名
      *
      * auth.tag — 权限校验中间件，继承 Authenticate 自动要求登录
+     * case — 请求/响应参数字段风格转换
      */
     protected function registerMiddleware(): void
     {
         $this->app['router']->aliasMiddleware('auth.tag', VerifyAuthTagMiddleware::class);
+        $this->app['router']->aliasMiddleware('case', CaseMiddleware::class);
     }
 
     /**
@@ -293,11 +296,12 @@ class NexusServiceProvider extends ServiceProvider
         });
 
         // 注册 api mount（继承 auth 域）
+        // 追加 case 中间件，自动处理请求/响应参数字段风格转换
         $manager->extend('api', function (string $version = 'v1') {
             return [
                 'extends' => 'auth',
                 'prefix' => "/api/{$version}",
-                'middlewares' => ['api'],
+                'middlewares' => ['api', 'case'],
             ];
         });
 
