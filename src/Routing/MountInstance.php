@@ -27,6 +27,9 @@ class MountInstance
 
     protected ?RouteRegistrar $route = null;
 
+    /** @var array<string, mixed>|null 缓存解析后的 defaults */
+    protected ?array $defaults = null;
+
     public function __construct(MountManager $manager, string $spec)
     {
         $this->manager = $manager;
@@ -44,42 +47,62 @@ class MountInstance
     /**
      * 执行路由定义
      *
-     * 在 mount 的 group 内执行回调，传入 $this 作为 $route 参数。
-     * 如果有 defaults 配置，通过 Route::group 注入到所有子路由。
+     * 使用 Route::group 一次性注入 prefix、middleware、defaults 到 groupStack，
+     * 子路由通过 RouteRegistrar 注册时会自动合并 groupStack 属性。
+     *
+     * 注意：进入回调前重置 RouteRegistrar 的 prefix 为空，
+     * 避免 RouteRegistrar::compileAction 中的 prefix 与 groupStack 中的 prefix 翻倍。
      */
     public function execute(callable $callback): void
     {
         [$name, $params] = $this->parseSpec($this->spec);
         $config = $this->manager->resolveMount($name, $params);
 
-        $route = Route::prefix($config['prefix'] ?? '');
+        $attributes = [];
 
+        if (! empty($config['prefix'])) {
+            $attributes['prefix'] = $config['prefix'];
+        }
         if (! empty($config['middlewares'])) {
-            $route = $route->middleware(array_unique($config['middlewares']));
+            $attributes['middleware'] = array_unique($config['middlewares']);
+        }
+        if (! empty($config['defaults'])) {
+            $attributes['defaults'] = $config['defaults'];
         }
 
-        // 如果有 defaults，用 Route::group 包裹注入
-        // 使所有子路由都能获取到 package_id/package_name
-        $defaults = $config['defaults'] ?? [];
-        if (! empty($defaults)) {
-            $route->group(function () use ($callback, $defaults) {
-                Route::group(['defaults' => $defaults], function () use ($callback) {
-                    $callback($this);
-                });
-            });
-        } else {
-            $route->group(function () use ($callback) {
-                $callback($this);
-            });
+        Route::group($attributes, function () use ($callback) {
+            // 重置 RouteRegistrar 的 prefix 为空字符串，
+            // prefix 已由 Route::group 注入到 groupStack，不需要 RouteRegistrar 重复设置
+            $this->route = Route::prefix('');
+
+            $callback($this);
+        });
+    }
+
+    /**
+     * 解析并缓存 mount 的 defaults 配置
+     *
+     * @return array<string, mixed>
+     */
+    protected function resolveDefaults(): array
+    {
+        if ($this->defaults === null) {
+            [$name, $params] = $this->parseSpec($this->spec);
+            $config = $this->manager->resolveMount($name, $params);
+            $this->defaults = $config['defaults'] ?? [];
         }
+
+        return $this->defaults;
     }
 
     /**
      * 获取或创建底层的 RouteRegistrar
      *
-     * 应用顺序：
-     * 1. prefix
-     * 2. middlewares（声明式，直接合并，不存在覆盖问题）
+     * 在 RouteRegistrar 上设置 prefix、defaults 和 middleware，
+     * 通过单层 group 统一注入给所有子路由。
+     *
+     * defaults 属性 RouteRegistrar 原生不支持，
+     * 通过 Route::macro 注册 'defaults' 来实现。
      */
     protected function resolver(): RouteRegistrar
     {
@@ -90,7 +113,11 @@ class MountInstance
             $this->route = Route::prefix($config['prefix'] ?? '');
 
             if (! empty($config['middlewares'])) {
-                $this->route = $this->route->middleware(array_unique($config['middlewares']));
+                $this->route->middleware(array_unique($config['middlewares']));
+            }
+
+            if (! empty($config['defaults'])) {
+                $this->route->defaults($config['defaults']);
             }
         }
 

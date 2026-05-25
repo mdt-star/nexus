@@ -462,4 +462,164 @@ class MountManagerTest extends TestCase
 
         $this->assertEquals(['api', 'auth.tag'], $resolved['middlewares']);
     }
+
+    /** @test */
+    public function it_can_resolve_defaults_from_mount()
+    {
+        $this->manager->extend('test', function () {
+            return [
+                'prefix' => '/test',
+                'middlewares' => [],
+                'defaults' => [
+                    'package_id' => 1,
+                    'package_name' => 'test/package',
+                ],
+            ];
+        });
+
+        $resolved = $this->manager->resolveMount('test');
+
+        $this->assertEquals([
+            'package_id' => 1,
+            'package_name' => 'test/package',
+        ], $resolved['defaults']);
+    }
+
+    /** @test */
+    public function it_can_inherit_defaults_from_parent()
+    {
+        $this->manager->extend('parent', function () {
+            return [
+                'prefix' => '/parent',
+                'middlewares' => [],
+                'defaults' => [
+                    'package_id' => 1,
+                    'package_name' => 'parent/pkg',
+                ],
+            ];
+        });
+
+        $this->manager->extend('child', function () {
+            return [
+                'extends' => 'parent',
+                'prefix' => 'child',
+            ];
+        });
+
+        $resolved = $this->manager->resolveMount('child');
+
+        $this->assertEquals([
+            'package_id' => 1,
+            'package_name' => 'parent/pkg',
+        ], $resolved['defaults']);
+    }
+
+    /** @test */
+    public function child_defaults_overrides_parent_defaults()
+    {
+        $this->manager->extend('parent', function () {
+            return [
+                'prefix' => '/parent',
+                'middlewares' => [],
+                'defaults' => [
+                    'package_id' => 1,
+                    'package_name' => 'parent/pkg',
+                ],
+            ];
+        });
+
+        $this->manager->extend('child', function () {
+            return [
+                'extends' => 'parent',
+                'prefix' => 'child',
+                'defaults' => [
+                    'package_name' => 'child/pkg',
+                ],
+            ];
+        });
+
+        $resolved = $this->manager->resolveMount('child');
+
+        // package_id 继承自父级，package_name 被子级覆盖
+        $this->assertEquals([
+            'package_id' => 1,
+            'package_name' => 'child/pkg',
+        ], $resolved['defaults']);
+    }
+
+    /** @test */
+    public function it_can_inherit_defaults_through_multiple_levels()
+    {
+        $this->manager->extend('auth', function () {
+            return [
+                'middlewares' => ['auth.tag'],
+                'defaults' => [
+                    'package_id' => null,
+                    'package_name' => null,
+                ],
+            ];
+        });
+
+        $this->manager->extend('api', function (string $version = 'v1') {
+            return [
+                'extends' => 'auth',
+                'prefix' => "/api/{$version}",
+                'middlewares' => ['api'],
+            ];
+        });
+
+        $this->manager->extend('admin', function (string $version = 'v1') {
+            return [
+                'extends' => "api:{$version}",
+                'prefix' => 'admin',
+            ];
+        });
+
+        $resolved = $this->manager->resolveMount('admin');
+
+        $this->assertEquals('/api/v1/admin', $resolved['prefix']);
+        $this->assertEquals(['auth.tag', 'api'], $resolved['middlewares']);
+        $this->assertEquals([
+            'package_id' => null,
+            'package_name' => null,
+        ], $resolved['defaults']);
+    }
+
+    /** @test */
+    public function it_merges_defaults_from_multiple_parents()
+    {
+        $this->manager->extend('parent1', function () {
+            return [
+                'prefix' => '/p1',
+                'middlewares' => [],
+                'defaults' => [
+                    'key1' => 'from-p1',
+                ],
+            ];
+        });
+
+        $this->manager->extend('parent2', function () {
+            return [
+                'prefix' => 'p2',
+                'middlewares' => [],
+                'defaults' => [
+                    'key2' => 'from-p2',
+                ],
+            ];
+        });
+
+        $this->manager->extend('child', function () {
+            return [
+                'extends' => ['parent1', 'parent2'],
+                'prefix' => 'child',
+            ];
+        });
+
+        $resolved = $this->manager->resolveMount('child');
+
+        $this->assertEquals([
+            'key1' => 'from-p1',
+            'key2' => 'from-p2',
+        ], $resolved['defaults']);
+    }
 }

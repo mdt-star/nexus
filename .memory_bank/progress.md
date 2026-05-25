@@ -1,77 +1,25 @@
-# 项目进度
+# 进度追踪
 
-## 已完成
-- [x] 项目骨架搭建完成
-- [x] 数据库迁移文件（12 张表，含 users）
-- [x] 模型、服务、控制器、中间件
-- [x] 权限系统（HasModelAccess + HasDataScope + HasPermission）
-- [x] 动态配置合并机制
-- [x] TypedValueCast 类型转换
-- [x] Form Request 验证
-- [x] Filterable 查询过滤
-- [x] 项目更名为 Nexus
-- [x] PermissionSyncer 重构（tag 原样保存，不拼接父级前缀）
-- [x] VerifyAuthTagMiddleware 三层降级推断 + 国际化异常
-- [x] Route::auth() + Route::tag() 路由宏
-- [x] HasPermission 接口 + HasPermissionTrait（多态 + 缓存 + hasTag）
-- [x] User 模型实现 HasPermission，穿透 Role 合并 tag
-- [x] Role 模型实现 HasPermission
-- [x] Permissionable 观察者备忘（单对象级缓存清空）
-- [x] 测试覆盖（33 个测试全部通过）
-- [x] 解决多角色权限冲突问题
-- [x] 51 个测试全部通过
-- [x] Route Mount 系统实现
-- [x] 超级管理员
-- [x] 全部 82 个测试通过（145 个断言）
-- [x] **2026-05-24 接口重构：**
-  - [x] Desktop 表增加 `is_default` 字段
-  - [x] 桌面列表支持按 user_id 筛选
-  - [x] desktop_menus → desktop_items（去掉 menu_id 关联，改为直接存储字段）
-  - [x] 删除 menus 表及相关代码（Menu 模型、MenuTreeBuilder、迁移文件）
-  - [x] 取消 api/admin/model-accesses 接口（删除 adminIndex + AdminModelAccessFilterRequest）
-  - [x] 添加 admin 默认路由域（继承 api，前缀 /api/{version}/admin）
-  - [x] 更新设计文档和记忆银行
-  - [x] 82 个测试全部通过
-- [x] **2026-05-24 补充接口：**
-  - [x] 新增 8 个 Controller（Desktop/DesktopItem/User/Role/Permission/Permissionable/Package/ModelScope）
-  - [x] 新增 19 个 Form Request
-  - [x] 新增 ModelScopeSyncer 服务（从 composer.json 同步 model_scopes）
-  - [x] 路由统一使用 Route::admin() 写法
-  - [x] 创建 API 接口文档 docs/api/README.md
-  - [x] 82 个测试全部通过
-- [x] **2026-05-24 修复：**
-  - [x] 修复隐式模型绑定不生效（auth 能力添加 SubstituteBindings 中间件）
-  - [x] 修复 Filterable like 操作符缺少通配符（自动添加 %）
-  - [x] 124 个测试全部通过（243 个断言）
-- [x] **2026-05-25 重构：去掉能力系统 + instance，改用 middlewares 声明式配置**
-  - [x] 去掉 `MountManager::extendAbility()` / `hasAbility()` / `applyAbility()`
-  - [x] 去掉 `MountInstance` 中的 `without` 机制和反射
-  - [x] mount 配置 `abilities` → `middlewares`
-  - [x] 去掉 `instance` 回调
-  - [x] 更新测试
-  - [x] 117 个测试全部通过（232 个断言）
-- [x] **2026-05-25 新增：VerifyAuthTagMiddleware 权限标签检查集成测试**
-  - [x] 新增 `tests/Feature/AuthTagMiddlewareTest.php`，14 个测试
-  - [x] 覆盖：未登录、超级管理员、有/无权限、中间件参数 tag、Route::tag()、tag_not_found、未实现接口、package_id 精确匹配、全局 tag、角色穿透
-  - [x] 131 个测试全部通过（255 个断言）
-- [x] **2026-05-25 桌面项支持树状结构**
-  - [x] `create_desktop_items_table.php` 增加 `parent_id` 字段（自引用外键，级联删除）
-  - [x] `DesktopItem` 模型增加 `parent()` 和 `children()` 关联
-  - [x] `DesktopItemController::index()` 返回树状结构
-  - [x] Form Request 增加 `parent_id` 验证
-  - [x] `TestCase` 启用 SQLite 外键约束
-  - [x] 新增 4 个测试（创建子级项、树状列表、更新 parent_id、级联删除）
-  - [x] 135 个测试全部通过（270 个断言）
-- [x] **2026-05-25 发布所有接口 tag 到 composer.json**
-  - [x] `composer.json` 的 `extra.nexus.permissions` 声明所有 API 接口的 tag 树
-  - [x] 覆盖 10 个资源：system, model-access, desktop, desktop-item, user, role, permission, permissionable, package, model-scope
-  - [x] 同步更新 `lang/zh_CN/permissions.php` 和 `lang/en/permissions.php`
-- [x] **2026-05-25 将 auth 加入路由挂载继承链**
-  - [x] `MountManager::resolveMount()` 增加 `defaults` 合并逻辑
-  - [x] `MountInstance::execute()` 用 `Route::group(['defaults' => ...])` 注入 defaults
-  - [x] `NexusServiceProvider` 新增 `auth` mount，`api` 改为 `extends: 'auth'`
-  - [x] 继承链：`admin → api → auth`
-  - [x] 135 个测试全部通过（270 个断言）
+## 总体状态
 
-## 待办
-- [ ] 无
+所有 144 个测试全部通过（285 个断言）。
+
+## 已完成（对齐里程碑）
+
+- [x] MountManager::resolveMount() 增加 defaults 合并逻辑
+- [x] MountInstance::execute() 单层 Route::group 注入所有属性
+- [x] VerifyAuthTagMiddleware 静默通过无参数默认中间件
+- [x] VerifyAuthTagMiddleware 兼容 action['defaults'] 路径
+- [x] MountInstance 修复双层 groupStack 嵌套（prefix 翻倍 -> 404）
+- [x] NexusServiceProvider 新增 auth mount，api extends: 'auth'
+- [x] 继承链：admin → api → auth
+- [x] 全部 144 个测试通过
+- [x] package_name 查库改为 Package::idByName()（全表缓存 O(1)）
+
+## 已知问题
+
+- 2 个 deprecation 警告来自 Laravel 框架自身，与业务代码无关
+
+## 下一阶段
+
+- 无

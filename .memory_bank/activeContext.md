@@ -1,85 +1,28 @@
 # 当前活动上下文
 
-## 当前断点
+## 当前状态
 
-全部 135 个测试通过（270 个断言），2 个 Deprecation 警告（PHP 8.5+ 反射方法无需 setAccessible）。
+所有 144 个测试已全部通过（285 个断言），2 个 deprecation 警告为 Laravel 框架自身产生。
 
-## 已完成改动
+## 最近变更
 
-### 重构：去掉能力系统 + instance，改用 middlewares 声明式配置
+### 1. MountInstance 问题修复（execute 双层 groupStack 嵌套）
+- **问题**：`MountInstance::execute()` 原来用 `Route::group(['middleware' => [...]])` 包裹 + `resolver()->group()` 内层 = 两层 groupStack 嵌套，造成 prefix 和 middleware 翻倍，路由 URL 变为 `/prefix/prefix/uri`（404）。
+- **修复**：`execute()` 改为直接用 `Route::group()` 一次性注入所有属性（prefix、middleware、defaults），进入回调前重置 RouteRegistrar 的 prefix 为空。  
+  → 单层 groupStack，属性不会再翻倍。
 
-**背景**：`MountInstance::resolver()` 中逐个应用能力时，`RouteRegistrar` 的 `attribute('middleware', ...)` 会覆盖之前的 middleware 值，导致中间件丢失。之前用反射收集所有能力的中间件再一次性应用，但反射方案不够简洁。
+### 2. VerifyAuthTagMiddleware 默认中间件静默通过
+- **问题**：mount 级默认注入的 `auth.tag`（无参数）先于路由级 `auth.tag:custom:tag` 执行。对于无控制器的闭包路由，默认的 `auth.tag` 无法推断 tag，抛 `tag_not_found`。
+- **修复**：记录原始参数 `$hasExplicitParams`，无显式参数时若无法推断 tag 则 `$next($request)` 静默通过，由路由级更具体的 `auth.tag:xxx` 完成检查。
 
-**改动**：
-1. **去掉能力系统**：移除 `MountManager::extendAbility()`、`hasAbility()`、`applyAbility()` 方法
-2. **去掉 instance 回调**：mount 配置不再支持 `instance` 回调
-3. **去掉 without 机制**：`MountInstance` 不再支持 `withoutAuth()` 等链式取消
-4. **改用 middlewares 配置**：mount 配置中 `abilities` → `middlewares`，直接声明中间件列表
-5. **简化 MountInstance**：`resolver()` 中直接 `$this->route->middleware(array_unique($config['middlewares']))`，不需要反射
+### 3. VerifyAuthTagMiddleware 从 action['defaults'] 读取 defaults
+- **问题**：`Route::group(['defaults' => [...]])` 注入的 defaults 通过 `RouteGroup::merge` 存到 `$route->action['defaults']`，而非 `$route->defaults` 属性。中间件中 `$route->defaults['package_id'] ?? null` 永远拿不到 mount 注入的 defaults。
+- **修复**：读取时同时检查 `$route->defaults` 和 `$route->action['defaults']`。  
+  `$packageId = $route?->defaults['package_id'] ?? $route?->action['defaults']['package_id'] ?? null`
 
-**影响文件**：
-- `src/Routing/MountInstance.php`：199 行 → 65 行
-- `src/Routing/MountManager.php`：345 行 → 270 行
-- `src/Providers/NexusServiceProvider.php`：去掉能力注册，`abilities` → `middlewares`
-- `tests/Unit/MountManagerTest.php`：去掉能力/without 相关测试，更新为 middlewares
+## 待办/后续建议
 
-**开发者取消中间件**：在子路由中用 Laravel 原生的 `withoutMiddleware()`：
-```php
-Route::mount('api', function ($route) {
-    $route->withoutMiddleware('auth.tag')->group(function () {
-        $route->get('/public', [PublicController::class, 'index']);
-    });
-});
-```
-
-### 修复：隐式模型绑定不生效
-- **根因**：`Route::admin()` 注册的路由只应用了 `auth.tag` 中间件，缺少 `SubstituteBindings` 中间件
-- **修复**：在 `auth` 能力中添加 `SubstituteBindings::class`
-- **影响**：`DesktopItemController` 等依赖模型绑定的控制器恢复正常
-
-### 修复：Filterable like 操作符缺少通配符
-- **根因**：`Filterable::applyFilter` 中 `like` 操作符直接使用原始值，未自动添加 `%` 通配符
-- **修复**：`like` 操作符自动在值两侧添加 `%`
-
-### 清理：移除调试代码
-- 移除 `DesktopController::update()` 中的 `dump()` 调试语句
-- 移除 `DesktopApiTest::更新桌面()` 中的 `dump()` 调试语句
-
-### 新增：VerifyAuthTagMiddleware 权限标签检查集成测试
-- 新增 `tests/Feature/AuthTagMiddlewareTest.php`，14 个测试覆盖：
-  - 未登录 → 401
-  - 超级管理员跳过权限检查
-  - 有权限的用户可以访问
-  - 无权限的用户被拒绝
-  - 中间件参数指定 tag（有/无权限）
-  - Route::tag() 自定义 tag（有/无权限）
-  - 无 tag 可推断时抛 tag_not_found
-  - 用户未实现 HasPermission 接口被拒绝
-  - package_id 精确匹配（有/无权限）
-  - 全局 tag（package_id IS NULL）匹配
-  - 角色 tag 穿透到用户
-
-### 桌面项支持树状结构
-- `create_desktop_items_table.php` 迁移增加 `parent_id` 字段（自引用外键，级联删除）
-- `DesktopItem` 模型增加 `parent()` 和 `children()` 关联
-- `DesktopItemController::index()` 返回树状结构（根节点 + with('children')）
-- `StoreDesktopItemRequest` / `UpdateDesktopItemRequest` 增加 `parent_id` 验证
-- `TestCase` 启用 SQLite 外键约束（`PRAGMA foreign_keys = ON`）
-- 新增 4 个测试：创建子级项、树状列表、更新 parent_id、级联删除
-
-### 发布所有接口 tag 到 composer.json
-- `composer.json` 的 `extra.nexus.permissions` 声明所有 API 接口的 tag 树
-- 覆盖：system, model-access, desktop, desktop-item, user, role, permission, permissionable, package, model-scope
-- 同步更新 `lang/zh_CN/permissions.php` 和 `lang/en/permissions.php` 的 tag 名称映射
-
-### 将 auth 加入路由挂载继承链
-- **背景**：`Route::admin()` 注册的路由只有 `auth.tag` 中间件，没有自动注入 `package_id`/`package_name`，导致 `VerifyAuthTagMiddleware` 无法精确查询权限
-- **改动**：
-  1. `MountManager::resolveMount()` 增加 `defaults` 合并逻辑（子级覆盖父级同名 key）
-  2. `MountInstance::execute()` 在有 defaults 时用 `Route::group(['defaults' => ...])` 包裹注入
-  3. `NexusServiceProvider::registerDefaultMounts()` 新增 `auth` mount（middlewares + defaults 自动推断包名），`api` mount 改为 `extends: 'auth'`
-- **继承链**：`admin → api → auth`
-- 所有通过 `Route::admin()` 注册的路由自动获得 `auth.tag` 中间件和 `package_id`/`package_name`
-
-## 测试状态
-- 135 个测试全部通过（270 个断言）
+- [x] MountManager::resolveMount() 增加 defaults 合并逻辑
+- [x] MountInstance::execute() 单层 Route::group 注入所有属性
+- [x] VerifyAuthTagMiddleware 静默通过无参数默认中间件
+- [x] VerifyAuthTagMiddleware 兼容 action['defaults'] 路径

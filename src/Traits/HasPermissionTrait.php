@@ -58,7 +58,7 @@ trait HasPermissionTrait
     {
         return $this->getPermissionTags()->contains(function ($perm) use ($tag, $packageId) {
             return $perm->tag === $tag
-                && ($packageId ? $perm->package_id === $packageId : $perm->package_id === null);
+                && ($packageId ? (int) $perm->package_id === $packageId : $perm->package_id === null);
         });
     }
 
