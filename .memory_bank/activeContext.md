@@ -2,7 +2,7 @@
 
 ## 当前断点
 
-全部 117 个测试通过（232 个断言），2 个 Deprecation 警告（PHP 8.5+ 反射方法无需 setAccessible）。
+全部 131 个测试通过（255 个断言），2 个 Deprecation 警告（PHP 8.5+ 反射方法无需 setAccessible）。
 
 ## 已完成改动
 
@@ -45,5 +45,19 @@ Route::mount('api', function ($route) {
 - 移除 `DesktopController::update()` 中的 `dump()` 调试语句
 - 移除 `DesktopApiTest::更新桌面()` 中的 `dump()` 调试语句
 
+### 新增：VerifyAuthTagMiddleware 权限标签检查集成测试
+- 新增 `tests/Feature/AuthTagMiddlewareTest.php`，14 个测试覆盖：
+  - 未登录 → 401
+  - 超级管理员跳过权限检查
+  - 有权限的用户可以访问
+  - 无权限的用户被拒绝
+  - 中间件参数指定 tag（有/无权限）
+  - Route::tag() 自定义 tag（有/无权限）
+  - 无 tag 可推断时抛 tag_not_found
+  - 用户未实现 HasPermission 接口被拒绝
+  - package_id 精确匹配（有/无权限）
+  - 全局 tag（package_id IS NULL）匹配
+  - 角色 tag 穿透到用户
+
 ## 测试状态
-- 117 个测试全部通过（232 个断言）
+- 131 个测试全部通过（255 个断言）

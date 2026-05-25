@@ -50,6 +50,10 @@
   - [x] 去掉 `instance` 回调
   - [x] 更新测试
   - [x] 117 个测试全部通过（232 个断言）
+- [x] **2026-05-25 新增：VerifyAuthTagMiddleware 权限标签检查集成测试**
+  - [x] 新增 `tests/Feature/AuthTagMiddlewareTest.php`，14 个测试
+  - [x] 覆盖：未登录、超级管理员、有/无权限、中间件参数 tag、Route::tag()、tag_not_found、未实现接口、package_id 精确匹配、全局 tag、角色穿透
+  - [x] 131 个测试全部通过（255 个断言）
 
 ## 待办
 - [ ] 无
