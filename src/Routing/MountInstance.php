@@ -45,12 +45,33 @@ class MountInstance
      * 执行路由定义
      *
      * 在 mount 的 group 内执行回调，传入 $this 作为 $route 参数。
+     * 如果有 defaults 配置，通过 Route::group 注入到所有子路由。
      */
     public function execute(callable $callback): void
     {
-        $this->resolver()->group(function () use ($callback) {
-            $callback($this);
-        });
+        [$name, $params] = $this->parseSpec($this->spec);
+        $config = $this->manager->resolveMount($name, $params);
+
+        $route = Route::prefix($config['prefix'] ?? '');
+
+        if (! empty($config['middlewares'])) {
+            $route = $route->middleware(array_unique($config['middlewares']));
+        }
+
+        // 如果有 defaults，用 Route::group 包裹注入
+        // 使所有子路由都能获取到 package_id/package_name
+        $defaults = $config['defaults'] ?? [];
+        if (! empty($defaults)) {
+            $route->group(function () use ($callback, $defaults) {
+                Route::group(['defaults' => $defaults], function () use ($callback) {
+                    $callback($this);
+                });
+            });
+        } else {
+            $route->group(function () use ($callback) {
+                $callback($this);
+            });
+        }
     }
 
     /**

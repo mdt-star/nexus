@@ -254,19 +254,50 @@ class NexusServiceProvider extends ServiceProvider
      * 注册默认挂载点
      *
      * 预定义：
-     * - api mount：前缀 /api/{version}，中间件 [api, auth.tag]，默认 version=v1
+     * - auth mount：中间件 [auth.tag]，defaults 自动注入 package_id/package_name
+     * - api mount：继承 auth 域，前缀 /api/{version}，追加中间件 [api]
      * - admin mount：继承 api 域，追加前缀 /admin
+     *
+     * 继承链：admin → api → auth
+     * 所有通过 Route::admin() 注册的路由自动获得 auth.tag 中间件和 package_id/package_name
      */
     protected function registerDefaultMounts(): void
     {
         /** @var MountManager $manager */
         $manager = $this->app->make(MountManager::class);
 
-        // 注册 api mount
+        // 注册 auth mount（基础认证域）
+        // 自动注入 package_id 和 package_name 到路由 defaults，
+        // 使 VerifyAuthTagMiddleware 能精确查询权限。
+        $manager->extend('auth', function () {
+            // 通过 debug_backtrace 自动推断调用者包名
+            $trace = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 6);
+            $packageName = null;
+            foreach ($trace as $frame) {
+                $file = $frame['file'] ?? '';
+                if (preg_match('#/vendor/([^/]+/[^/]+)/#', $file, $matches)) {
+                    $packageName = $matches[1];
+                    break;
+                }
+            }
+
+            $packageId = $packageName ? Package::idByName($packageName) : null;
+
+            return [
+                'middlewares' => ['auth.tag'],
+                'defaults' => [
+                    'package_id' => $packageId,
+                    'package_name' => $packageName,
+                ],
+            ];
+        });
+
+        // 注册 api mount（继承 auth 域）
         $manager->extend('api', function (string $version = 'v1') {
             return [
+                'extends' => 'auth',
                 'prefix' => "/api/{$version}",
-                'middlewares' => ['api', 'auth.tag'],
+                'middlewares' => ['api'],
             ];
         });
 

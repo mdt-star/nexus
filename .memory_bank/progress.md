@@ -66,6 +66,12 @@
   - [x] `composer.json` 的 `extra.nexus.permissions` 声明所有 API 接口的 tag 树
   - [x] 覆盖 10 个资源：system, model-access, desktop, desktop-item, user, role, permission, permissionable, package, model-scope
   - [x] 同步更新 `lang/zh_CN/permissions.php` 和 `lang/en/permissions.php`
+- [x] **2026-05-25 将 auth 加入路由挂载继承链**
+  - [x] `MountManager::resolveMount()` 增加 `defaults` 合并逻辑
+  - [x] `MountInstance::execute()` 用 `Route::group(['defaults' => ...])` 注入 defaults
+  - [x] `NexusServiceProvider` 新增 `auth` mount，`api` 改为 `extends: 'auth'`
+  - [x] 继承链：`admin → api → auth`
+  - [x] 135 个测试全部通过（270 个断言）
 
 ## 待办
 - [ ] 无

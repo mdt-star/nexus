@@ -113,6 +113,7 @@ class MountManager
             $merged = [
                 'prefix' => '',
                 'middlewares' => [],
+                'defaults' => [],
             ];
 
             foreach ($extends as $extendSpec) {
@@ -130,6 +131,12 @@ class MountManager
                     $merged['middlewares'],
                     $parentConfig['middlewares'] ?? []
                 );
+
+                // 合并 defaults（子级覆盖父级同名 key）
+                $merged['defaults'] = array_merge(
+                    $merged['defaults'],
+                    $parentConfig['defaults'] ?? []
+                );
             }
 
             // 当前配置覆盖父级
@@ -141,6 +148,13 @@ class MountManager
                 $merged['middlewares'] = array_merge(
                     $merged['middlewares'],
                     $config['middlewares']
+                );
+            }
+
+            if (isset($config['defaults'])) {
+                $merged['defaults'] = array_merge(
+                    $merged['defaults'],
+                    $config['defaults']
                 );
             }
 

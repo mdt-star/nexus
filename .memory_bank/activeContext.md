@@ -72,5 +72,14 @@ Route::mount('api', function ($route) {
 - 覆盖：system, model-access, desktop, desktop-item, user, role, permission, permissionable, package, model-scope
 - 同步更新 `lang/zh_CN/permissions.php` 和 `lang/en/permissions.php` 的 tag 名称映射
 
+### 将 auth 加入路由挂载继承链
+- **背景**：`Route::admin()` 注册的路由只有 `auth.tag` 中间件，没有自动注入 `package_id`/`package_name`，导致 `VerifyAuthTagMiddleware` 无法精确查询权限
+- **改动**：
+  1. `MountManager::resolveMount()` 增加 `defaults` 合并逻辑（子级覆盖父级同名 key）
+  2. `MountInstance::execute()` 在有 defaults 时用 `Route::group(['defaults' => ...])` 包裹注入
+  3. `NexusServiceProvider::registerDefaultMounts()` 新增 `auth` mount（middlewares + defaults 自动推断包名），`api` mount 改为 `extends: 'auth'`
+- **继承链**：`admin → api → auth`
+- 所有通过 `Route::admin()` 注册的路由自动获得 `auth.tag` 中间件和 `package_id`/`package_name`
+
 ## 测试状态
 - 135 个测试全部通过（270 个断言）
