@@ -54,6 +54,18 @@
   - [x] 新增 `tests/Feature/AuthTagMiddlewareTest.php`，14 个测试
   - [x] 覆盖：未登录、超级管理员、有/无权限、中间件参数 tag、Route::tag()、tag_not_found、未实现接口、package_id 精确匹配、全局 tag、角色穿透
   - [x] 131 个测试全部通过（255 个断言）
+- [x] **2026-05-25 桌面项支持树状结构**
+  - [x] `create_desktop_items_table.php` 增加 `parent_id` 字段（自引用外键，级联删除）
+  - [x] `DesktopItem` 模型增加 `parent()` 和 `children()` 关联
+  - [x] `DesktopItemController::index()` 返回树状结构
+  - [x] Form Request 增加 `parent_id` 验证
+  - [x] `TestCase` 启用 SQLite 外键约束
+  - [x] 新增 4 个测试（创建子级项、树状列表、更新 parent_id、级联删除）
+  - [x] 135 个测试全部通过（270 个断言）
+- [x] **2026-05-25 发布所有接口 tag 到 composer.json**
+  - [x] `composer.json` 的 `extra.nexus.permissions` 声明所有 API 接口的 tag 树
+  - [x] 覆盖 10 个资源：system, model-access, desktop, desktop-item, user, role, permission, permissionable, package, model-scope
+  - [x] 同步更新 `lang/zh_CN/permissions.php` 和 `lang/en/permissions.php`
 
 ## 待办
 - [ ] 无

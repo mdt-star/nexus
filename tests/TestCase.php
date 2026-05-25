@@ -48,6 +48,11 @@ abstract class TestCase extends OrchestraTestCase
      */
     protected function defineDatabaseMigrations(): void
     {
+        // SQLite 默认不启用外键约束，需要手动启用
+        if (\Illuminate\Support\Facades\DB::connection() instanceof \Illuminate\Database\SQLiteConnection) {
+            \Illuminate\Support\Facades\DB::statement('PRAGMA foreign_keys = ON');
+        }
+
         $this->loadMigrationsFrom(__DIR__ . '/../database/migrations');
     }
 }

@@ -2,7 +2,7 @@
 
 ## 当前断点
 
-全部 131 个测试通过（255 个断言），2 个 Deprecation 警告（PHP 8.5+ 反射方法无需 setAccessible）。
+全部 135 个测试通过（270 个断言），2 个 Deprecation 警告（PHP 8.5+ 反射方法无需 setAccessible）。
 
 ## 已完成改动
 
@@ -59,5 +59,18 @@ Route::mount('api', function ($route) {
   - 全局 tag（package_id IS NULL）匹配
   - 角色 tag 穿透到用户
 
+### 桌面项支持树状结构
+- `create_desktop_items_table.php` 迁移增加 `parent_id` 字段（自引用外键，级联删除）
+- `DesktopItem` 模型增加 `parent()` 和 `children()` 关联
+- `DesktopItemController::index()` 返回树状结构（根节点 + with('children')）
+- `StoreDesktopItemRequest` / `UpdateDesktopItemRequest` 增加 `parent_id` 验证
+- `TestCase` 启用 SQLite 外键约束（`PRAGMA foreign_keys = ON`）
+- 新增 4 个测试：创建子级项、树状列表、更新 parent_id、级联删除
+
+### 发布所有接口 tag 到 composer.json
+- `composer.json` 的 `extra.nexus.permissions` 声明所有 API 接口的 tag 树
+- 覆盖：system, model-access, desktop, desktop-item, user, role, permission, permissionable, package, model-scope
+- 同步更新 `lang/zh_CN/permissions.php` 和 `lang/en/permissions.php` 的 tag 名称映射
+
 ## 测试状态
-- 131 个测试全部通过（255 个断言）
+- 135 个测试全部通过（270 个断言）

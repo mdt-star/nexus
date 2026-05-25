@@ -16,6 +16,7 @@ return new class extends Migration
     {
         Schema::create('desktop_items', function (Blueprint $table) {
             $table->bigIncrements('id');
+            $table->unsignedBigInteger('parent_id')->nullable()->after('id')->comment('父级桌面项 id，null 为根节点');
             $table->unsignedBigInteger('desktop_id')->comment('关联 desktops.id');
             $table->string('label')->comment('菜单标题');
             $table->string('path')->comment('路由路径');
@@ -26,6 +27,7 @@ return new class extends Migration
             $table->timestamps();
 
             $table->index('desktop_id');
+            $table->foreign('parent_id')->references('id')->on('desktop_items')->onDelete('cascade');
         });
     }
 

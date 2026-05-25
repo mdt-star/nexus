@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Config;
  * - Desktop CRUD
  * - DesktopItem CRUD（嵌套路由）
  * - DesktopItem reorder 批量排序
+ * - DesktopItem 树状结构（parent_id）
  * - 过滤（user_id, region, is_default）
  */
 class DesktopApiTest extends TestCase
@@ -213,5 +214,83 @@ class DesktopApiTest extends TestCase
         $response->assertStatus(200);
         $this->assertDatabaseHas('desktop_items', ['id' => $item1->id, 'sort' => 1]);
         $this->assertDatabaseHas('desktop_items', ['id' => $item2->id, 'sort' => 0]);
+    }
+
+    /** @test */
+    public function 创建子级桌面项()
+    {
+        $desktop = Desktop::create(['user_id' => $this->user->id, 'name' => '桌面', 'region' => 'main']);
+        $parent = DesktopItem::create(['desktop_id' => $desktop->id, 'label' => '父项', 'path' => '/parent', 'sort' => 0]);
+
+        $response = $this->postJson('/api/v1/admin/desktops/' . $desktop->id . '/items', [
+            'label' => '子项',
+            'path' => '/parent/child',
+            'parent_id' => $parent->id,
+            'sort' => 0,
+        ]);
+
+        $response->assertStatus(201);
+        $this->assertDatabaseHas('desktop_items', [
+            'desktop_id' => $desktop->id,
+            'label' => '子项',
+            'parent_id' => $parent->id,
+        ]);
+    }
+
+    /** @test */
+    public function 获取桌面项列表返回树状结构()
+    {
+        $desktop = Desktop::create(['user_id' => $this->user->id, 'name' => '桌面', 'region' => 'main']);
+        $parent = DesktopItem::create(['desktop_id' => $desktop->id, 'label' => '父项', 'path' => '/parent', 'sort' => 0]);
+        DesktopItem::create(['desktop_id' => $desktop->id, 'label' => '子项', 'path' => '/parent/child', 'parent_id' => $parent->id, 'sort' => 0]);
+        DesktopItem::create(['desktop_id' => $desktop->id, 'label' => '独立项', 'path' => '/alone', 'sort' => 1]);
+
+        $response = $this->getJson('/api/v1/admin/desktops/' . $desktop->id . '/items');
+
+        $response->assertStatus(200);
+        // 应返回 2 个根节点（父项 + 独立项），子项嵌套在父项的 children 中
+        $response->assertJsonCount(2);
+
+        // 验证父项包含子项
+        $response->assertJsonFragment(['label' => '父项']);
+        $response->assertJsonFragment(['label' => '独立项']);
+
+        // 验证子项在 children 中（不在根层级）
+        $json = $response->json();
+        $parentNode = collect($json)->firstWhere('label', '父项');
+        $this->assertNotNull($parentNode);
+        $this->assertArrayHasKey('children', $parentNode);
+        $this->assertCount(1, $parentNode['children']);
+        $this->assertEquals('子项', $parentNode['children'][0]['label']);
+    }
+
+    /** @test */
+    public function 更新桌面项parent_id()
+    {
+        $desktop = Desktop::create(['user_id' => $this->user->id, 'name' => '桌面', 'region' => 'main']);
+        $parent = DesktopItem::create(['desktop_id' => $desktop->id, 'label' => '父项', 'path' => '/parent', 'sort' => 0]);
+        $child = DesktopItem::create(['desktop_id' => $desktop->id, 'label' => '子项', 'path' => '/child', 'sort' => 1]);
+
+        // 将子项挂到父项下
+        $response = $this->putJson('/api/v1/admin/desktops/' . $desktop->id . '/items/' . $child->id, [
+            'parent_id' => $parent->id,
+        ]);
+
+        $response->assertStatus(200);
+        $this->assertDatabaseHas('desktop_items', ['id' => $child->id, 'parent_id' => $parent->id]);
+    }
+
+    /** @test */
+    public function 删除父级桌面项级联删除子项()
+    {
+        $desktop = Desktop::create(['user_id' => $this->user->id, 'name' => '桌面', 'region' => 'main']);
+        $parent = DesktopItem::create(['desktop_id' => $desktop->id, 'label' => '父项', 'path' => '/parent', 'sort' => 0]);
+        $child = DesktopItem::create(['desktop_id' => $desktop->id, 'label' => '子项', 'path' => '/child', 'parent_id' => $parent->id, 'sort' => 0]);
+
+        $response = $this->deleteJson('/api/v1/admin/desktops/' . $desktop->id . '/items/' . $parent->id);
+
+        $response->assertStatus(204);
+        $this->assertDatabaseMissing('desktop_items', ['id' => $parent->id]);
+        $this->assertDatabaseMissing('desktop_items', ['id' => $child->id]);
     }
 }

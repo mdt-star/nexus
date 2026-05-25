@@ -29,6 +29,53 @@
             "providers": [
                 "MdtStar\\Nexus\\Providers\\NexusServiceProvider"
             ]
+        },
+        "nexus": {
+            "permissions": [
+                {
+                    "tag": "system",
+                    "children": [
+                        "system:config",
+                        "system:permission"
+                    ]
+                },
+                {
+                    "tag": "model-access",
+                    "children": ["list", "create", "delete"]
+                },
+                {
+                    "tag": "desktop",
+                    "children": ["list", "create", "show", "update", "delete"]
+                },
+                {
+                    "tag": "desktop-item",
+                    "children": ["list", "create", "show", "update", "delete", "reorder"]
+                },
+                {
+                    "tag": "user",
+                    "children": ["list", "create", "show", "update", "delete"]
+                },
+                {
+                    "tag": "role",
+                    "children": ["list", "create", "show", "update", "delete"]
+                },
+                {
+                    "tag": "permission",
+                    "children": ["list", "create", "show", "update", "delete"]
+                },
+                {
+                    "tag": "permissionable",
+                    "children": ["list", "create", "delete"]
+                },
+                {
+                    "tag": "package",
+                    "children": ["list"]
+                },
+                {
+                    "tag": "model-scope",
+                    "children": ["list"]
+                }
+            ]
         }
     },
     "config": {

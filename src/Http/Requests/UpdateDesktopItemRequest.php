@@ -20,6 +20,7 @@ class UpdateDesktopItemRequest extends FormRequest
             'component' => ['nullable', 'string', 'max:500'],
             'custom' => ['nullable', 'json'],
             'sort' => ['sometimes', 'integer', 'min:0'],
+            'parent_id' => ['nullable', 'integer', 'exists:desktop_items,id'],
         ];
     }
 }

@@ -16,9 +16,18 @@ use Illuminate\Routing\Controller;
  */
 class DesktopItemController extends Controller
 {
+    /**
+     * 获取桌面项列表（树状结构）
+     *
+     * 返回根节点（parent_id IS NULL）及其子节点 children。
+     */
     public function index(Desktop $desktop)
     {
-        return $desktop->items()->orderBy('sort')->get();
+        return $desktop->items()
+            ->whereNull('parent_id')
+            ->orderBy('sort')
+            ->with('children')
+            ->get();
     }
 
     public function store(StoreDesktopItemRequest $request, Desktop $desktop)
