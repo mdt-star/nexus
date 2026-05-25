@@ -103,14 +103,21 @@ class CaseMiddlewareTest extends TestCase
     /**
      * 测试 POST 请求 body 参数转换（camel → snake）
      *
-     * 前端传 camelCase 参数，后端应收到 snake_case
+     * 前端传 camelCase 参数，后端应收到 snake_case。
+     * 通过返回 array_keys 和 isset 标记来验证后端实际收到的 key 是 snake_case。
      */
     public function test_post_body_camel_to_snake()
     {
-        // 注册一个 POST 测试路由，回显收到的参数
+        // 注册一个 POST 测试路由，回显后端实际收到的参数 key
         Route::post('/api/v1/admin/test-echo', function (\Illuminate\Http\Request $request) {
-            // 返回 $request->all() 查看转换后的参数
-            return $request->all();
+            $params = $request->all();
+            return [
+                'received_keys' => array_keys($params),
+                'has_user_role' => isset($params['user_role']),
+                'has_display_name' => isset($params['display_name']),
+                'user_role_value' => $params['user_role'] ?? null,
+                'display_name_value' => $params['display_name'] ?? null,
+            ];
         })->middleware(['auth.tag', 'case']);
 
         // 前端传 camelCase
@@ -122,12 +129,13 @@ class CaseMiddlewareTest extends TestCase
         $response->assertOk();
         $json = $response->json();
 
-        // 注意：响应 JSON 的 key 也会被中间件转成 camelCase，
-        // 所以这里验证的是 camelCase key 对应的值正确
-        $this->assertArrayHasKey('userRole', $json, 'response key should be camelCase');
-        $this->assertArrayHasKey('displayName', $json, 'response key should be camelCase');
-        $this->assertEquals('admin', $json['userRole']);
-        $this->assertEquals('Test', $json['displayName']);
+        // 验证后端实际收到的是 snake_case key
+        $this->assertContains('user_role', $json['receivedKeys'], '后端应收到 user_role');
+        $this->assertContains('display_name', $json['receivedKeys'], '后端应收到 display_name');
+        $this->assertTrue($json['hasUserRole'], 'isset(user_role) 应为 true');
+        $this->assertTrue($json['hasDisplayName'], 'isset(display_name) 应为 true');
+        $this->assertEquals('admin', $json['userRoleValue']);
+        $this->assertEquals('Test', $json['displayNameValue']);
     }
 
     /**
