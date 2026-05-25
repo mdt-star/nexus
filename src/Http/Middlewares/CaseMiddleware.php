@@ -106,22 +106,29 @@ class CaseMiddleware
     /**
      * 转换请求输入参数的 key
      *
-     * 将 $request->request 和 $request->query 中所有 key 递归转换。
+     * 将 $request->request、$request->query 和 $request->json 中所有 key 递归转换。
      *
      * @param Request $request
      * @param callable $convert Str::snake | Str::camel
      */
     protected function convertInputKeys(Request $request, callable $convert): void
     {
-        // 替换 request 参数
+        // 替换 request 参数（表单/POST 参数）
         $request->request->replace(
             $this->convertArrayKeys($request->request->all(), $convert)
         );
 
-        // 替换 query 参数
+        // 替换 query 参数（GET 参数）
         $request->query->replace(
             $this->convertArrayKeys($request->query->all(), $convert)
         );
+
+        // 替换 json 参数（JSON body 请求）
+        if ($request->isJson() && $request->json() !== null) {
+            $request->json()->replace(
+                $this->convertArrayKeys($request->json()->all(), $convert)
+            );
+        }
     }
 
     /**

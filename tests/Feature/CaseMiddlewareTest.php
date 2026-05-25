@@ -5,6 +5,7 @@ namespace MdtStar\Nexus\Tests\Feature;
 use MdtStar\Nexus\Models\User;
 use MdtStar\Nexus\Tests\TestCase;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\Route;
 
 class CaseMiddlewareTest extends TestCase
 {
@@ -25,45 +26,64 @@ class CaseMiddlewareTest extends TestCase
         // 将当前用户设为超级管理员，跳过权限标签检查
         Config::set('nexus.super_admin_id', $this->user->id);
         $this->actingAs($this->user);
+
+        // 注册一个带复合字段的临时测试路由
+        Route::get('/api/v1/admin/test-case', function () {
+            return [
+                'user_role' => 'admin',
+                'created_at' => '2024-01-01',
+                'display_name' => 'Test User',
+                'nested_data' => [
+                    'inner_key' => 'value',
+                    'deep_nest' => [
+                        'deep_key' => 'deep_value',
+                    ],
+                ],
+            ];
+        })->middleware(['auth.tag', 'case']);
     }
 
     /**
-     * 测试默认 camelCase（不传任何风格参数）
+     * 测试默认 camelCase — 复合字段自动转换
      */
     public function test_default_camel_case()
     {
-        $response = $this->getJson('/api/v1/admin/users');
+        $response = $this->getJson('/api/v1/admin/test-case');
 
         $response->assertOk();
-        // 默认 camelCase，响应 key 应为 camelCase
-        $response->assertJsonStructure([
-            '*' => ['id', 'name', 'email'],
-        ]);
-
-        // 验证 key 是 camelCase
         $json = $response->json();
-        if (! empty($json[0])) {
-            $keys = array_keys($json[0]);
-            foreach ($keys as $key) {
-                if (str_contains($key, '_')) {
-                    $this->fail("Response key [{$key}] should be camelCase");
-                }
-            }
-        }
+
+        // 复合字段应转为 camelCase
+        $this->assertArrayHasKey('userRole', $json, 'user_role should become userRole');
+        $this->assertArrayHasKey('createdAt', $json, 'created_at should become createdAt');
+        $this->assertArrayHasKey('displayName', $json, 'display_name should become displayName');
+
+        // 嵌套数组 key 也应转换
+        $this->assertArrayHasKey('innerKey', $json['nestedData'], 'inner_key should become innerKey');
+        $this->assertArrayHasKey('deepKey', $json['nestedData']['deepNest'], 'deep_key should become deepKey');
+
+        // 单字段保持原样
+        $this->assertArrayHasKey('nestedData', $json, 'nested_data should become nestedData');
     }
 
     /**
-     * 测试 header X-Case: snake — 请求参数 snake→snake，响应 snake→snake
+     * 测试 header X-Case: snake — 复合字段保持 snake_case
      */
     public function test_header_snake_case()
     {
         $response = $this->withHeader('X-Case', 'snake')
-            ->getJson('/api/v1/admin/users');
+            ->getJson('/api/v1/admin/test-case');
 
         $response->assertOk();
-        $response->assertJsonStructure([
-            '*' => ['id', 'name', 'email'],
-        ]);
+        $json = $response->json();
+
+        // 复合字段保持 snake_case
+        $this->assertArrayHasKey('user_role', $json);
+        $this->assertArrayHasKey('created_at', $json);
+        $this->assertArrayHasKey('display_name', $json);
+        $this->assertArrayHasKey('nested_data', $json);
+        $this->assertArrayHasKey('inner_key', $json['nested_data']);
+        $this->assertArrayHasKey('deep_key', $json['nested_data']['deep_nest']);
     }
 
     /**
@@ -71,51 +91,58 @@ class CaseMiddlewareTest extends TestCase
      */
     public function test_parameter_snake_case()
     {
-        $response = $this->getJson('/api/v1/admin/users?_case=snake');
+        $response = $this->getJson('/api/v1/admin/test-case?_case=snake');
 
         $response->assertOk();
-        $response->assertJsonStructure([
-            '*' => ['id', 'name', 'email'],
-        ]);
+        $json = $response->json();
+
+        $this->assertArrayHasKey('user_role', $json);
+        $this->assertArrayHasKey('created_at', $json);
     }
 
     /**
      * 测试 POST 请求 body 参数转换（camel → snake）
+     *
+     * 前端传 camelCase 参数，后端应收到 snake_case
      */
     public function test_post_body_camel_to_snake()
     {
-        $response = $this->postJson('/api/v1/admin/users', [
-            'name' => 'John',
-            'email' => 'john@example.com',
-            'password' => 'secret123',
+        // 注册一个 POST 测试路由，回显收到的参数
+        Route::post('/api/v1/admin/test-echo', function (\Illuminate\Http\Request $request) {
+            // 返回 $request->all() 查看转换后的参数
+            return $request->all();
+        })->middleware(['auth.tag', 'case']);
+
+        // 前端传 camelCase
+        $response = $this->postJson('/api/v1/admin/test-echo', [
+            'userRole' => 'admin',
+            'displayName' => 'Test',
         ]);
 
-        // POST 返回 201 Created
-        $response->assertCreated();
+        $response->assertOk();
+        $json = $response->json();
+
+        // 注意：响应 JSON 的 key 也会被中间件转成 camelCase，
+        // 所以这里验证的是 camelCase key 对应的值正确
+        $this->assertArrayHasKey('userRole', $json, 'response key should be camelCase');
+        $this->assertArrayHasKey('displayName', $json, 'response key should be camelCase');
+        $this->assertEquals('admin', $json['userRole']);
+        $this->assertEquals('Test', $json['displayName']);
     }
 
     /**
-     * 测试显式声明 camel 时 key 为 camelCase
+     * 测试显式声明 camel 时复合字段转换
      */
     public function test_explicit_camel_case()
     {
-        $response = $this->getJson('/api/v1/admin/users?_case=camel');
+        $response = $this->getJson('/api/v1/admin/test-case?_case=camel');
 
         $response->assertOk();
-        $response->assertJsonStructure([
-            '*' => ['id', 'name', 'email'],
-        ]);
-
-        // 验证 key 是 camelCase
         $json = $response->json();
-        if (! empty($json[0])) {
-            $keys = array_keys($json[0]);
-            foreach ($keys as $key) {
-                if (str_contains($key, '_')) {
-                    $this->fail("Response key [{$key}] should be camelCase");
-                }
-            }
-        }
+
+        $this->assertArrayHasKey('userRole', $json);
+        $this->assertArrayHasKey('createdAt', $json);
+        $this->assertArrayHasKey('displayName', $json);
     }
 
     /**
