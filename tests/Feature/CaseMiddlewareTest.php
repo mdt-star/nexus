@@ -28,33 +28,19 @@ class CaseMiddlewareTest extends TestCase
     }
 
     /**
-     * 测试默认 snake_case（不传任何风格参数）
+     * 测试默认 camelCase（不传任何风格参数）
      */
-    public function test_default_snake_case()
+    public function test_default_camel_case()
     {
         $response = $this->getJson('/api/v1/admin/users');
 
         $response->assertOk();
-        // UserController::index() 返回扁平集合，每条有 id/name/email
-        $response->assertJsonStructure([
-            '*' => ['id', 'name', 'email'],
-        ]);
-    }
-
-    /**
-     * 测试 header X-Case: camel — 请求参数 camel→snake，响应 snake→camel
-     */
-    public function test_header_camel_case()
-    {
-        $response = $this->withHeader('X-Case', 'camel')
-            ->getJson('/api/v1/admin/users');
-
-        $response->assertOk();
+        // 默认 camelCase，响应 key 应为 camelCase
         $response->assertJsonStructure([
             '*' => ['id', 'name', 'email'],
         ]);
 
-        // 验证具体 key 是 camelCase
+        // 验证 key 是 camelCase
         $json = $response->json();
         if (! empty($json[0])) {
             $keys = array_keys($json[0]);
@@ -67,11 +53,25 @@ class CaseMiddlewareTest extends TestCase
     }
 
     /**
-     * 测试参数 _case=camel
+     * 测试 header X-Case: snake — 请求参数 snake→snake，响应 snake→snake
      */
-    public function test_parameter_camel_case()
+    public function test_header_snake_case()
     {
-        $response = $this->getJson('/api/v1/admin/users?_case=camel');
+        $response = $this->withHeader('X-Case', 'snake')
+            ->getJson('/api/v1/admin/users');
+
+        $response->assertOk();
+        $response->assertJsonStructure([
+            '*' => ['id', 'name', 'email'],
+        ]);
+    }
+
+    /**
+     * 测试参数 _case=snake
+     */
+    public function test_parameter_snake_case()
+    {
+        $response = $this->getJson('/api/v1/admin/users?_case=snake');
 
         $response->assertOk();
         $response->assertJsonStructure([
@@ -84,28 +84,38 @@ class CaseMiddlewareTest extends TestCase
      */
     public function test_post_body_camel_to_snake()
     {
-        $response = $this->withHeader('X-Case', 'camel')
-            ->postJson('/api/v1/admin/users', [
-                'name' => 'John',
-                'email' => 'john@example.com',
-                'password' => 'secret123',
-            ]);
+        $response = $this->postJson('/api/v1/admin/users', [
+            'name' => 'John',
+            'email' => 'john@example.com',
+            'password' => 'secret123',
+        ]);
 
         // POST 返回 201 Created
         $response->assertCreated();
     }
 
     /**
-     * 测试显式声明 snake 时 key 保持原样
+     * 测试显式声明 camel 时 key 为 camelCase
      */
-    public function test_explicit_snake_case()
+    public function test_explicit_camel_case()
     {
-        $response = $this->getJson('/api/v1/admin/users?_case=snake');
+        $response = $this->getJson('/api/v1/admin/users?_case=camel');
 
         $response->assertOk();
         $response->assertJsonStructure([
             '*' => ['id', 'name', 'email'],
         ]);
+
+        // 验证 key 是 camelCase
+        $json = $response->json();
+        if (! empty($json[0])) {
+            $keys = array_keys($json[0]);
+            foreach ($keys as $key) {
+                if (str_contains($key, '_')) {
+                    $this->fail("Response key [{$key}] should be camelCase");
+                }
+            }
+        }
     }
 
     /**

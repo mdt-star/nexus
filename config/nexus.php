@@ -80,7 +80,7 @@ return [
      */
     'case' => [
         // 默认风格：snake 或 camel
-        'default' => 'snake',
+        'default' => 'camel',
 
         // 前端通过 Header 声明风格时的 Header 名称
         'header_name' => 'X-Case',
