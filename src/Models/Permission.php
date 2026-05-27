@@ -2,6 +2,7 @@
 
 namespace MdtStar\Nexus\Models;
 
+use MdtStar\Nexus\Traits\Filterable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -21,6 +22,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class Permission extends Model
 {
+    use Filterable;
+
     protected $table = 'permissions';
 
     protected $fillable = [

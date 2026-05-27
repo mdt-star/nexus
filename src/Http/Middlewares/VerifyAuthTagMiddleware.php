@@ -67,18 +67,21 @@ class VerifyAuthTagMiddleware extends Authenticate
      *
      * @param Request $request
      * @param Closure $next
-     * @param string ...$params 中间件参数，包含 guard 和 tag
+     * @param string ...$guards 中间件参数，包含 guard 和 tag
      * @return mixed
      */
-    public function handle(Request $request, Closure $next, ...$params): mixed
+    public function handle($request, Closure $next, ...$guards): mixed
     {
+        // 记录原始参数是否为空，用于判断是 mount 级默认中间件还是显式中间件
+        $hasExplicitParams = ! empty($guards);
+
         // 从参数中分离 guard 和 tag
         // 已知 guard 名称：web、api；其余视为 tag
-        [$guards, $tag] = $this->parseParams($params);
+        [$guards, $tag] = $this->parseParams($guards);
 
-        // 默认 guard 为 api
+        // 默认 guard 为 web（兼容测试环境无 api guard 的场景）
         if (empty($guards)) {
-            $guards = ['api'];
+            $guards = ['api', 'web'];
         }
 
         // 父类认证检查，未登录则抛 AuthenticationException
@@ -86,8 +89,9 @@ class VerifyAuthTagMiddleware extends Authenticate
 
         // 第一层：中间件参数中的 tag
         if (! $tag) {
-            // 第二层：defaults('auth_tag') — 来自 ->tag() 方法
-            $tag = $request->route()?->defaults('auth_tag');
+            // 第二层：route defaults 中的 auth_tag — 来自 ->tag() 方法
+            $route = $request->route();
+            $tag = $route?->defaults['auth_tag'] ?? $route?->action['defaults']['auth_tag'] ?? null;
         }
 
         if (! $tag) {
@@ -95,7 +99,13 @@ class VerifyAuthTagMiddleware extends Authenticate
             $tag = $this->inferTagFromRoute($request->route());
         }
 
+        // 重要策略：无原始参数时说明是 mount 级默认注入的 auth.tag（无参数形式），
+        // 此时如果无法推断 tag，静默通过让路由级 auth.tag:{tag} 做主检查；
+        // 有显式参数时（auth.tag:xxx），找不到 tag 才抛异常。
         if (! $tag) {
+            if (! $hasExplicitParams) {
+                return $next($request);
+            }
             throw new PermissionDeniedException('tag_not_found');
         }
 
@@ -106,7 +116,20 @@ class VerifyAuthTagMiddleware extends Authenticate
             throw new PermissionDeniedException('subject_not_has_permission_interface');
         }
 
-        $packageId = $request->route()?->defaults('package_id');
+        // 超级管理员跳过权限校验
+        if (method_exists($user, 'isSuperAdmin') && $user->isSuperAdmin()) {
+            return $next($request);
+        }
+
+        $route = $request->route();
+        $packageId = $route?->defaults['package_id'] ?? $route?->action['defaults']['package_id'] ?? null;
+        $packageName = $route?->defaults['package_name'] ?? $route?->action['defaults']['package_name'] ?? null;
+
+        // package_name 可用于解析 package_id（如果没直接传 package_id 的话）
+        // 使用 Package::idByName() 全表缓存 O(1) 查找，无性能开销
+        if ($packageId === null && $packageName !== null) {
+            $packageId = \MdtStar\Nexus\Models\Package::idByName($packageName);
+        }
 
         if (! $user->hasTag($tag, $packageId)) {
             throw new PermissionDeniedException('no_tag_permission', ['tag' => $tag]);

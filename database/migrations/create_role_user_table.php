@@ -15,6 +15,7 @@ return new class extends Migration
             $table->bigIncrements('id');
             $table->unsignedBigInteger('user_id')->index()->comment('关联 users.id');
             $table->unsignedBigInteger('role_id')->index()->comment('关联 roles.id');
+            $table->unsignedSmallInteger('sort')->default(0)->comment('排序，越小优先级越高');
             $table->timestamps();
 
             $table->unique(['user_id', 'role_id']);

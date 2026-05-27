@@ -16,6 +16,7 @@ return new class extends Migration
             $table->unsignedBigInteger('user_id')->comment('用户 id');
             $table->string('name')->comment('桌面名称');
             $table->string('region')->comment('布局区域（如 sidebar_left, header, main）');
+            $table->boolean('is_default')->default(false)->comment('是否为默认桌面（同 region 下默认桌面优先返回）');
             $table->timestamps();
 
             $table->index('user_id');

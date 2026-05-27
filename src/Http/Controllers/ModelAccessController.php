@@ -2,7 +2,6 @@
 
 namespace MdtStar\Nexus\Http\Controllers;
 
-use MdtStar\Nexus\Http\Requests\AdminModelAccessFilterRequest;
 use MdtStar\Nexus\Http\Requests\ModelAccessFilterRequest;
 use MdtStar\Nexus\Http\Requests\StoreModelAccessRequest;
 use MdtStar\Nexus\Http\Requests\UpdateModelAccessRequest;
@@ -18,23 +17,11 @@ use Illuminate\Routing\Controller;
 class ModelAccessController extends Controller
 {
     /**
-     * 获取模型访问权限列表（公开接口）
+     * 获取模型访问权限列表
      *
      * 支持按 subject_type、subject_id、class 过滤。
      */
     public function index(ModelAccessFilterRequest $request)
-    {
-        return response()->json(
-            ModelAccess::filter($request->filters())->paginate()
-        );
-    }
-
-    /**
-     * 获取模型访问权限列表（管理端接口）
-     *
-     * 需要管理员权限，支持更多过滤字段。
-     */
-    public function adminIndex(AdminModelAccessFilterRequest $request)
     {
         return response()->json(
             ModelAccess::filter($request->filters())->paginate()

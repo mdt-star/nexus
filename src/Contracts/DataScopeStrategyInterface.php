@@ -9,6 +9,9 @@ use Illuminate\Database\Eloquent\Builder;
  *
  * 所有数据范围策略类必须实现此接口。
  * 通过 model_scopes 表注册策略类，运行时动态调用。
+ *
+ * 数据范围策略仅作用于读操作（查询），
+ * 写/删操作只检查 can_write/can_delete 布尔值，不应用 scope 策略。
  */
 interface DataScopeStrategyInterface
 {
@@ -17,10 +20,10 @@ interface DataScopeStrategyInterface
      *
      * @param Builder $query 当前查询构建器
      * @param string $modelClass 模型全限定类名
-     * @param mixed $subject 授权主体（用户或角色）
+     * @param HasModelAccess $subject 授权主体（用户或角色）
      * @return Builder
      */
-    public function apply(Builder $query, string $modelClass, mixed $subject): Builder;
+    public function apply(Builder $query, string $modelClass, HasModelAccess $subject): Builder;
 
     /**
      * 获取该策略支持的模型白名单

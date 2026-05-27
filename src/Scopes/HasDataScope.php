@@ -144,8 +144,22 @@ trait HasDataScope
      */
     protected function shouldApplyDataScope(?Builder $builder = null): bool
     {
-        return config('nexus.data_scope.enabled', true)
-            && $this->resolveSubject($builder) !== null;
+        if (! config('nexus.data_scope.enabled', true)) {
+            return false;
+        }
+
+        $subject = $this->resolveSubject($builder);
+
+        if ($subject === null) {
+            return false;
+        }
+
+        // 超级管理员跳过数据范围限制
+        if (method_exists($subject, 'isSuperAdmin') && $subject->isSuperAdmin()) {
+            return false;
+        }
+
+        return true;
     }
 
     /**
@@ -205,7 +219,8 @@ trait HasDataScope
 
         try {
             $strategy = app($strategyClass);
-            $strategy->apply($builder, $modelClass, Auth::user());
+            $subject = $this->resolveSubject($builder);
+            $strategy->apply($builder, $modelClass, $subject);
         } catch (\Throwable $e) {
             throw new PermissionDeniedException('scope_execution_failed');
         }
@@ -214,11 +229,20 @@ trait HasDataScope
     /**
      * 检查写入权限
      *
+     * 写操作只检查 can_write 布尔值，不应用 scope 策略。
+     * scope 策略仅作用于读操作（查询），写/删操作的数据范围限制
+     * 应在业务层通过查询验证实现。
+     *
      * @throws PermissionDeniedException 当写入权限被拒绝时
      */
     protected function checkWritePermission(): bool
     {
         $subject = $this->resolveSubject();
+
+        if ($subject === null) {
+            return true;
+        }
+
         $accesses = $subject->getModelAccess(static::class);
         $matched = $accesses->first();
 
@@ -232,11 +256,20 @@ trait HasDataScope
     /**
      * 检查删除权限
      *
+     * 删除操作只检查 can_delete 布尔值，不应用 scope 策略。
+     * scope 策略仅作用于读操作（查询），写/删操作的数据范围限制
+     * 应在业务层通过查询验证实现。
+     *
      * @throws PermissionDeniedException 当删除权限被拒绝时
      */
     protected function checkDeletePermission(): bool
     {
         $subject = $this->resolveSubject();
+
+        if ($subject === null) {
+            return true;
+        }
+
         $accesses = $subject->getModelAccess(static::class);
         $matched = $accesses->first();
 

@@ -8,7 +8,7 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('model_has_permissions', function (Blueprint $table) {
+        Schema::create('permissionables', function (Blueprint $table) {
             $table->id();
             $table->morphs('model');
             $table->string('tag');
@@ -21,6 +21,6 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::dropIfExists('model_has_permissions');
+        Schema::dropIfExists('permissionables');
     }
 };

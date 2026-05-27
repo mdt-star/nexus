@@ -4,6 +4,7 @@ namespace MdtStar\Nexus\Models;
 
 use MdtStar\Nexus\Contracts\HasModelAccess;
 use MdtStar\Nexus\Contracts\HasPermission;
+use MdtStar\Nexus\Traits\Filterable;
 use MdtStar\Nexus\Traits\HasModelAccessTrait;
 use MdtStar\Nexus\Traits\HasPermissionTrait;
 use Illuminate\Database\Eloquent\Model;
@@ -27,6 +28,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
  */
 class Role extends Model implements HasModelAccess, HasPermission
 {
+    use Filterable;
     use HasModelAccessTrait;
     use HasPermissionTrait;
 
@@ -34,6 +36,7 @@ class Role extends Model implements HasModelAccess, HasPermission
 
     protected $fillable = [
         'name',
+        'slug',
         'description',
     ];
 

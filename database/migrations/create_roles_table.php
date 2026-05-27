@@ -14,6 +14,7 @@ return new class extends Migration
         Schema::create('roles', function (Blueprint $table) {
             $table->bigIncrements('id');
             $table->string('name')->comment('角色名称');
+            $table->string('slug')->unique()->comment('角色标识');
             $table->string('description')->nullable()->comment('角色描述');
             $table->timestamps();
         });

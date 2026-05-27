@@ -3,12 +3,14 @@
 namespace MdtStar\Nexus\Providers;
 
 use MdtStar\Nexus\Console\SyncPermissionsCommand;
+use MdtStar\Nexus\Http\Middlewares\CaseMiddleware;
 use MdtStar\Nexus\Http\Middlewares\VerifyAuthTagMiddleware;
 use MdtStar\Nexus\Jobs\SyncPlatformPackagesJob;
 use MdtStar\Nexus\Models\Package;
 use MdtStar\Nexus\Models\Permission;
 use MdtStar\Nexus\Models\User;
 use MdtStar\Nexus\Observers\PermissionObserver;
+use MdtStar\Nexus\Routing\MountManager;
 use MdtStar\Nexus\Services\DynamicConfigManager;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Route;
@@ -43,6 +45,11 @@ class NexusServiceProvider extends ServiceProvider
         $this->app->singleton(DynamicConfigManager::class, function ($app) {
             return new DynamicConfigManager();
         });
+
+        // 注册路由挂载管理器为单例
+        $this->app->singleton(MountManager::class, function ($app) {
+            return new MountManager();
+        });
     }
 
     /**
@@ -55,6 +62,9 @@ class NexusServiceProvider extends ServiceProvider
 
         // 注册路由宏
         $this->registerRouteMacros();
+
+        // 注册默认挂载点和能力
+        $this->registerDefaultMounts();
 
         // 注册 Builder Macro（HasDataScope 的 withSubject 依赖此 Macro）
         $this->registerBuilderMacros();
@@ -106,10 +116,12 @@ class NexusServiceProvider extends ServiceProvider
      * 注册中间件别名
      *
      * auth.tag — 权限校验中间件，继承 Authenticate 自动要求登录
+     * case — 请求/响应参数字段风格转换
      */
     protected function registerMiddleware(): void
     {
         $this->app['router']->aliasMiddleware('auth.tag', VerifyAuthTagMiddleware::class);
+        $this->app['router']->aliasMiddleware('case', CaseMiddleware::class);
     }
 
     /**
@@ -117,6 +129,9 @@ class NexusServiceProvider extends ServiceProvider
      *
      * Route::auth() — 自动注入 package_id 到 defaults，支持自动推断和显式指定包名
      * Route::tag() — 将自定义 tag 写入 defaults('auth_tag')
+     * Route::mount() — 路由挂载系统
+     * Route::extendMount() — 扩展路由挂载
+     * Route::extendAbility() — 扩展能力
      */
     protected function registerRouteMacros(): void
     {
@@ -185,6 +200,118 @@ class NexusServiceProvider extends ServiceProvider
                 $this->defaults,
                 ['auth_tag' => $tag]
             ));
+        });
+
+        // ============================================================
+        // Route Mount 系统
+        // ============================================================
+
+        /**
+         * Route::mount() — 路由挂载
+         *
+         * 使用预定义或自定义的 mount 来注册路由组。
+         *
+         * 用法：
+         * ```php
+         * Route::mount('api', function () {
+         *     Route::get('/articles', [ArticleController::class, 'index']);
+         *     // → /api/v1/articles + auth
+         * });
+         *
+         * Route::mount('api:v2', function () {
+         *     // → /api/v2/articles + auth
+         * });
+         * ```
+         */
+        Route::macro('mount', function (string $spec, callable $callback) {
+            /** @var MountManager $manager */
+            $manager = app(MountManager::class);
+            $manager->mount($spec, $callback);
+        });
+
+        /**
+         * Route::extendMount() — 扩展路由挂载
+         *
+         * 注册一个新的 mount 定义。
+         *
+         * 用法：
+         * ```php
+         * Route::extendMount('admin', function (string $version = 'v1') {
+         *     return [
+         *         'extends' => "api:{$version}",
+         *         'prefix' => '/admin',
+         *     ];
+         * });
+         * ```
+         */
+        Route::macro('extendMount', function (string $name, callable $resolver) {
+            /** @var MountManager $manager */
+            $manager = app(MountManager::class);
+            $manager->extend($name, $resolver);
+        });
+
+        // extendAbility 宏已移除，改用 middlewares 声明式配置
+    }
+
+    /**
+     * 注册默认挂载点
+     *
+     * 预定义：
+     * - auth mount：中间件 [auth.tag]，defaults 自动注入 package_id/package_name
+     * - api mount：继承 auth 域，前缀 /api/{version}，追加中间件 [api]
+     * - admin mount：继承 api 域，追加前缀 /admin
+     *
+     * 继承链：admin → api → auth
+     * 所有通过 Route::admin() 注册的路由自动获得 auth.tag 中间件和 package_id/package_name
+     */
+    protected function registerDefaultMounts(): void
+    {
+        /** @var MountManager $manager */
+        $manager = $this->app->make(MountManager::class);
+
+        // 注册 auth mount（基础认证域）
+        // 自动注入 package_id 和 package_name 到路由 defaults，
+        // 使 VerifyAuthTagMiddleware 能精确查询权限。
+        $manager->extend('auth', function () {
+            // 通过 debug_backtrace 自动推断调用者包名
+            $trace = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 6);
+            $packageName = null;
+            foreach ($trace as $frame) {
+                $file = $frame['file'] ?? '';
+                if (preg_match('#/vendor/([^/]+/[^/]+)/#', $file, $matches)) {
+                    $packageName = $matches[1];
+                    break;
+                }
+            }
+
+            $packageId = $packageName ? Package::idByName($packageName) : null;
+
+            return [
+                'middlewares' => ['auth.tag'],
+                'defaults' => [
+                    'package_id' => $packageId,
+                    'package_name' => $packageName,
+                ],
+            ];
+        });
+
+        // 注册 api mount（继承 auth 域）
+        // 追加 case 中间件，自动处理请求/响应参数字段风格转换
+        $manager->extend('api', function (string $version = 'v1') {
+            return [
+                'extends' => 'auth',
+                'prefix' => "/api/{$version}",
+                'middlewares' => ['api', 'case'],
+            ];
+        });
+
+        // 注册 admin mount（继承 api 域）
+        // 使用相对路径「admin」（不以 / 开头），以追加到 api 前缀之后
+        $manager->extend('admin', function (string $version = 'v1') {
+            return [
+                'extends' => "api:{$version}",
+                'prefix' => 'admin',
+            ];
         });
     }
 

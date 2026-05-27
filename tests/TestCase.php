@@ -31,6 +31,16 @@ abstract class TestCase extends OrchestraTestCase
             'database' => ':memory:',
             'prefix' => '',
         ]);
+
+        // 配置 api guard（测试环境需要，否则 auth.tag 中间件默认找 api guard 报错）
+        // session driver + actingAs() 的 setUser() 可直接绕过 Session 持久化
+        $app['config']->set('auth.guards.api', [
+            'driver' => 'session',
+            'provider' => 'users',
+        ]);
+
+        // 测试环境中不启用超级管理员（避免 id=1 的用户被跳过权限检查）
+        $app['config']->set('nexus.super_admin_id', 0);
     }
 
     /**
@@ -38,6 +48,11 @@ abstract class TestCase extends OrchestraTestCase
      */
     protected function defineDatabaseMigrations(): void
     {
+        // SQLite 默认不启用外键约束，需要手动启用
+        if (\Illuminate\Support\Facades\DB::connection() instanceof \Illuminate\Database\SQLiteConnection) {
+            \Illuminate\Support\Facades\DB::statement('PRAGMA foreign_keys = ON');
+        }
+
         $this->loadMigrationsFrom(__DIR__ . '/../database/migrations');
     }
 }

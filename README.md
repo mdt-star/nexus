@@ -72,7 +72,49 @@ Route::auth(function () {
 Route::get('/global', ...)->middleware('auth.tag:global:tag,web');
 ```
 
-### 3. 数据范围 Trait
+### 3. 路由挂载系统（Mount System）
+
+路由挂载系统提供了一种声明式、可继承的路由组织方式。通过预定义"挂载点"，快速注册带有统一前缀和中间件能力的路由组。
+
+**基础使用：**
+```php
+// 回调接收 $route 参数（MountInstance 实例）
+Route::mount('api', function ($route) {
+    $route->get('/users', [UserController::class, 'index']);
+});
+
+// 指定版本
+Route::mount('api:v2', function ($route) {
+    $route->get('/users', [UserController::class, 'index']);
+});
+```
+
+**快捷宏（自动注册）：**
+```php
+// 等价于 Route::mount('api', ...)
+Route::api(function ($route) {
+    $route->get('/users', [UserController::class, 'index']);
+});
+```
+
+**扩展自定义 Mount：**
+```php
+// 在模块的 ServiceProvider 中注册
+Route::extendMount('admin', function (string $version = 'v1') {
+    return [
+        'extends' => "api:{$version}",
+        'prefix' => '/admin',
+    ];
+});
+
+// 使用
+Route::mount('admin', function ($route) {
+    $route->get('/dashboard', [DashboardController::class, 'index']);
+});
+// 等价于：/api/v1/admin/dashboard，带 auth 中间件
+```
+
+### 4. 数据范围 Trait
 
 在模型中使用数据范围控制：
 
@@ -85,7 +127,7 @@ class Article extends Model
 }
 ```
 
-### 4. 模型权限控制
+### 5. 模型权限控制
 
 在模型中使用模型访问权限：
 
@@ -99,7 +141,7 @@ class Article extends Model implements HasModelAccess
 }
 ```
 
-### 5. 功能权限接口
+### 6. 功能权限接口
 
 模型实现 `HasPermission` 接口即可获得 tag 权限校验能力：
 
@@ -156,7 +198,7 @@ $user->flushPermissionCache();
 |------|------|
 | Permission | 功能权限节点，通过 tag 标识 |
 | Package | 模块包，关联一组权限 |
-| ModelHasPermission | 多态关联，将 tag 授予 User/Role |
+| Permissionable | 多态关联，将 tag 授予 User/Role（原 ModelHasPermission） |
 | Role | 角色组，支持 tag 穿透到用户 |
 | Menu | 菜单发布池，前端可用的菜单项 |
 | Desktop | 用户桌面，支持自定义布局 |
@@ -206,7 +248,7 @@ Model::query() → HasDataScope::apply()
 php vendor/bin/phpunit
 ```
 
-当前测试覆盖：33 个测试，68 个断言，涵盖 HasPermissionTrait、PermissionSyncer、Package、PermissionDeniedException、User 穿透 Role 集成测试。
+当前测试覆盖：117 个测试，232 个断言，涵盖 HasPermissionTrait、PermissionSyncer、Package、PermissionDeniedException、User 穿透 Role 集成测试、Mount 路由挂载系统、Desktop/DesktopItem API 集成测试。
 
 ## 许可证
 

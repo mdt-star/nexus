@@ -2,7 +2,7 @@
 
 namespace MdtStar\Nexus\Tests\Feature;
 
-use MdtStar\Nexus\Models\ModelHasPermission;
+use MdtStar\Nexus\Models\Permissionable;
 use MdtStar\Nexus\Models\Package;
 use MdtStar\Nexus\Models\Role;
 use MdtStar\Nexus\Models\User;
@@ -31,7 +31,7 @@ class UserPermissionPenetrationTest extends TestCase
         $this->loadMigrationsFrom(__DIR__ . '/../../database/migrations');
 
         $this->package = Package::create(['name' => 'test/article']);
-        $this->role = Role::create(['name' => 'editor']);
+        $this->role = Role::create(['name' => 'editor', 'slug' => 'editor']);
         $this->user = User::create([
             'name' => 'Test User',
             'email' => 'test@example.com',
@@ -45,7 +45,7 @@ class UserPermissionPenetrationTest extends TestCase
     /** @test */
     public function 用户自身tag()
     {
-        ModelHasPermission::create([
+        Permissionable::create([
             'model_type' => User::class,
             'model_id' => $this->user->id,
             'tag' => 'list',
@@ -59,7 +59,7 @@ class UserPermissionPenetrationTest extends TestCase
     /** @test */
     public function 角色tag穿透到用户()
     {
-        ModelHasPermission::create([
+        Permissionable::create([
             'model_type' => Role::class,
             'model_id' => $this->role->id,
             'tag' => 'list',
@@ -73,13 +73,13 @@ class UserPermissionPenetrationTest extends TestCase
     public function 用户tag覆盖角色tag()
     {
         // 角色有 list 和 add
-        ModelHasPermission::create([
+        Permissionable::create([
             'model_type' => Role::class,
             'model_id' => $this->role->id,
             'tag' => 'list',
             'package_id' => $this->package->id,
         ]);
-        ModelHasPermission::create([
+        Permissionable::create([
             'model_type' => Role::class,
             'model_id' => $this->role->id,
             'tag' => 'add',
@@ -87,7 +87,7 @@ class UserPermissionPenetrationTest extends TestCase
         ]);
 
         // 用户只有 list（覆盖角色）
-        ModelHasPermission::create([
+        Permissionable::create([
             'model_type' => User::class,
             'model_id' => $this->user->id,
             'tag' => 'list',
@@ -105,13 +105,13 @@ class UserPermissionPenetrationTest extends TestCase
     public function 合并去重相同tag只保留一份()
     {
         // 用户和角色都有相同的 tag
-        ModelHasPermission::create([
+        Permissionable::create([
             'model_type' => User::class,
             'model_id' => $this->user->id,
             'tag' => 'list',
             'package_id' => $this->package->id,
         ]);
-        ModelHasPermission::create([
+        Permissionable::create([
             'model_type' => Role::class,
             'model_id' => $this->role->id,
             'tag' => 'list',
@@ -128,16 +128,16 @@ class UserPermissionPenetrationTest extends TestCase
     /** @test */
     public function 多个角色tag合并()
     {
-        $role2 = Role::create(['name' => 'admin']);
+        $role2 = Role::create(['name' => 'admin', 'slug' => 'admin']);
         $this->user->roles()->attach($role2);
 
-        ModelHasPermission::create([
+        Permissionable::create([
             'model_type' => Role::class,
             'model_id' => $this->role->id,
             'tag' => 'list',
             'package_id' => $this->package->id,
         ]);
-        ModelHasPermission::create([
+        Permissionable::create([
             'model_type' => Role::class,
             'model_id' => $role2->id,
             'tag' => 'add',
@@ -152,7 +152,7 @@ class UserPermissionPenetrationTest extends TestCase
     public function 缓存清理后重新加载()
     {
         // 先给角色授权
-        ModelHasPermission::create([
+        Permissionable::create([
             'model_type' => Role::class,
             'model_id' => $this->role->id,
             'tag' => 'list',
@@ -166,7 +166,7 @@ class UserPermissionPenetrationTest extends TestCase
         $this->user->flushPermissionCache();
 
         // 新增一个 tag
-        ModelHasPermission::create([
+        Permissionable::create([
             'model_type' => Role::class,
             'model_id' => $this->role->id,
             'tag' => 'add',

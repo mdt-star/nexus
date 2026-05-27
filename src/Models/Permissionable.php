@@ -2,6 +2,7 @@
 
 namespace MdtStar\Nexus\Models;
 
+use MdtStar\Nexus\Traits\Filterable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 
@@ -19,9 +20,11 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
  */
-class ModelHasPermission extends Model
+class Permissionable extends Model
 {
-    protected $table = 'model_has_permissions';
+    use Filterable;
+
+    protected $table = 'permissionables';
 
     protected $fillable = [
         'model_type',

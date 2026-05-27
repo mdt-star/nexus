@@ -8,6 +8,14 @@
 return [
 
     /*
+     * 超级管理员配置
+     *
+     * 超级管理员拥有至高无上的权限，可以跳过所有权限检查。
+     * 默认为系统中第一个用户（id = 1）。
+     */
+    'super_admin_id' => env('NEXUS_SUPER_ADMIN_ID', 1),
+
+    /*
      * 功能权限标记配置（permissions 表）
      *
      * 控制前后端路由、页面元素的功能标记（Feature Flag）。
@@ -33,25 +41,14 @@ return [
     ],
 
     /*
-     * 菜单配置
-     */
-    'menus' => [
-        // 菜单缓存 TTL（秒），0 表示不缓存
-        'cache_ttl' => 3600,
-
-        // 顶级菜单默认图标
-        'default_icon' => 'fa-folder',
-    ],
-
-    /*
      * 桌面配置
      */
     'desktop' => [
         // 每个用户最大桌面数
         'max_desktops' => 5,
 
-        // 每个桌面最大菜单数
-        'max_menus_per_desktop' => 50,
+        // 每个桌面最大项数
+        'max_items_per_desktop' => 50,
     ],
 
     /*
@@ -68,5 +65,27 @@ return [
     'dynamic_config' => [
         // 配置键前缀
         'key_prefix' => 'nexus.',
+    ],
+
+    /*
+     * 参数字段风格转换（Case Middleware）
+     *
+     * 控制请求参数和响应 JSON 的 key 命名风格。
+     * 前端可通过 Header 或参数声明使用 camelCase 还是 snake_case。
+     *
+     * 检测优先级：
+     * 1. Header（如 X-Case: camel）
+     * 2. 请求参数（如 _case=camel）
+     * 3. 以下 default 配置
+     */
+    'case' => [
+        // 默认风格：snake 或 camel
+        'default' => 'camel',
+
+        // 前端通过 Header 声明风格时的 Header 名称
+        'header_name' => 'X-Case',
+
+        // 前端通过请求参数声明风格时的参数名称
+        'parameter_name' => '_case',
     ],
 ];

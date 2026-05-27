@@ -1,27 +1,28 @@
 # 当前活动上下文
 
-## 当前任务
-根据设计文档构建项目骨架，当前正在进行架构重构。
+## 当前状态
 
-## 最近改动
-- 项目更名为 Nexus（枢纽）
-- 实现持久配置合并机制（DynamicConfigManager + NexusServiceProvider）
-- TypedValueCast：Laravel Custom Cast 重构 Config 模型类型转换
-- Form Request：Controller 验证逻辑抽离到独立文件
-- Filterable Trait + FilterRequest：统一查询过滤体系
+所有 144 个测试已全部通过（285 个断言），2 个 deprecation 警告为 Laravel 框架自身产生。
 
-## 当前完成改动
-- ✅ PermissionSyncer — tag 原样保存，不拼接父级前缀
-- ✅ permissions 表唯一约束改为 (package_id, tag, parent_id)
-- ✅ Package 全表缓存（allCached() + flushCache()）
-- ✅ 新建 model_has_permissions 多态表 + ModelHasPermission 模型
-- ✅ 新建 HasPermission 接口 + HasPermissionTrait 默认实现（多态 + 缓存 + hasTag()）
-- ✅ User 模型实现 HasPermission，复写 getPermissionTags() 穿透 Role
-- ✅ Role 模型实现 HasPermission，使用 trait 默认实现
-- ✅ VerifyAuthTagMiddleware 改为调用 $user->hasTag()，异常消息国际化
+## 最近变更
 
-## 下一步计划
-- ⏳ 未来处理 tag 绑定时，需要实现 ModelHasPermission 单个对象级的缓存清空
-  - 当给某个模型（User/Role）新增/删除 tag 时，调用该模型的 flushPermissionCache()
-  - 可通过 ModelHasPermission 观察者（saved/deleted）自动触发关联模型的缓存清理
-  - 避免全量缓存过期，实现精准缓存失效
+### 1. MountInstance 问题修复（execute 双层 groupStack 嵌套）
+- **问题**：`MountInstance::execute()` 原来用 `Route::group(['middleware' => [...]])` 包裹 + `resolver()->group()` 内层 = 两层 groupStack 嵌套，造成 prefix 和 middleware 翻倍，路由 URL 变为 `/prefix/prefix/uri`（404）。
+- **修复**：`execute()` 改为直接用 `Route::group()` 一次性注入所有属性（prefix、middleware、defaults），进入回调前重置 RouteRegistrar 的 prefix 为空。  
+  → 单层 groupStack，属性不会再翻倍。
+
+### 2. VerifyAuthTagMiddleware 默认中间件静默通过
+- **问题**：mount 级默认注入的 `auth.tag`（无参数）先于路由级 `auth.tag:custom:tag` 执行。对于无控制器的闭包路由，默认的 `auth.tag` 无法推断 tag，抛 `tag_not_found`。
+- **修复**：记录原始参数 `$hasExplicitParams`，无显式参数时若无法推断 tag 则 `$next($request)` 静默通过，由路由级更具体的 `auth.tag:xxx` 完成检查。
+
+### 3. VerifyAuthTagMiddleware 从 action['defaults'] 读取 defaults
+- **问题**：`Route::group(['defaults' => [...]])` 注入的 defaults 通过 `RouteGroup::merge` 存到 `$route->action['defaults']`，而非 `$route->defaults` 属性。中间件中 `$route->defaults['package_id'] ?? null` 永远拿不到 mount 注入的 defaults。
+- **修复**：读取时同时检查 `$route->defaults` 和 `$route->action['defaults']`。  
+  `$packageId = $route?->defaults['package_id'] ?? $route?->action['defaults']['package_id'] ?? null`
+
+## 待办/后续建议
+
+- [x] MountManager::resolveMount() 增加 defaults 合并逻辑
+- [x] MountInstance::execute() 单层 Route::group 注入所有属性
+- [x] VerifyAuthTagMiddleware 静默通过无参数默认中间件
+- [x] VerifyAuthTagMiddleware 兼容 action['defaults'] 路径

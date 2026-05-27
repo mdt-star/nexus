@@ -5,7 +5,7 @@ namespace MdtStar\Nexus\Traits;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
-use MdtStar\Nexus\Models\ModelHasPermission;
+use MdtStar\Nexus\Models\Permissionable;
 
 /**
  * 功能权限主体 Trait 默认实现
@@ -29,7 +29,7 @@ trait HasPermissionTrait
      */
     public function permissionTags(): MorphMany
     {
-        return $this->morphMany(ModelHasPermission::class, 'model');
+        return $this->morphMany(Permissionable::class, 'model');
     }
 
     /**
@@ -58,7 +58,7 @@ trait HasPermissionTrait
     {
         return $this->getPermissionTags()->contains(function ($perm) use ($tag, $packageId) {
             return $perm->tag === $tag
-                && ($packageId ? $perm->package_id === $packageId : $perm->package_id === null);
+                && ($packageId ? (int) $perm->package_id === $packageId : $perm->package_id === null);
         });
     }
 
